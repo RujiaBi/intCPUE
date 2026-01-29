@@ -1,4 +1,5 @@
-#' Fit intCPUE model (encounter + positive)
+#' @useDynLib intCPUE, .registration = TRUE
+NULL
 #'
 #' @param formula A model formula with optional mgcv::s() smooth terms.
 #'   (For now, formula is used only to build smooth objects; other fixed effects

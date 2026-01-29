@@ -2,3 +2,4 @@
 
 export(intCPUE)
 export(make_data)
+useDynLib(intCPUE, .registration = TRUE)

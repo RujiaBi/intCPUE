@@ -442,7 +442,7 @@ Type objective_function<Type>::operator() ()
     Type S;
     for (int t=0; t < n_t; t++) {
       S = mu_total(t);
-      S = newton::Tag(S); // Set lowrank tag on S = sum(exp(x))
+      //S = newton::Tag(S); // Set lowrank tag on S = sum(exp(x))
       nll_penalty += eps_index(t) * S;
     }
   }

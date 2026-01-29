@@ -8,9 +8,6 @@ Authors@R:
 Description: The intCPUE provides an integrated, TMB-based framework for CPUE standardization that 
     jointly analyzes multiple fisheries or survey datasets and explicitly accounts for preferential sampling.
 License: GPL (>= 3)
-Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends:
     R (>= 4.4.0)
 Imports:

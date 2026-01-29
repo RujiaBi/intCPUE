@@ -27,5 +27,6 @@ Imports:
 LinkingTo:
     RcppEigen,
     TMB
+	ByteCompile: true
 URL: https://github.com/RujiaBi/intCPUE
 BugReports: https://github.com/RujiaBi/intCPUE/issues

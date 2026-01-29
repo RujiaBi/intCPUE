@@ -12,6 +12,7 @@ Depends:
     R (>= 4.4.0)
 Imports:
     Matrix,
+	methods,
     mgcv,
     rlang,
     stats,

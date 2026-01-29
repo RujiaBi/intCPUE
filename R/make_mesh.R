@@ -127,7 +127,7 @@ make_mesh <- function(
   
   tmp_det <- function(a, b) abs(det(rbind(a, b)))
   Tri_Area <- vapply(seq_len(nrow(E0)), function(i) tmp_det(E0[i, ], E1[i, ]) / 2, numeric(1))
-  
+
   list(
     n_s      = mesh$n,
     n_tri    = nrow(TV),
@@ -136,7 +136,7 @@ make_mesh <- function(
     E1       = E1,
     E2       = E2,
     TV       = TV - 1,  # 0-based for C++/TMB
-    G0       = inla_spde$param.inla$M0,
+    G0       = inla_spde$param.inla$M0
     G0_inv   = methods::as(diag(1 / diag(inla_spde$param.inla$M0)), "TsparseMatrix")
   )
 }

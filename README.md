@@ -8,14 +8,14 @@
 ## Overview
 
 `intCPUE` provides an integrated, TMB-based framework for CPUE
-standardization with spatial and spatiotemporal SPDE random fields and
-optional smooth terms.
+standardization that jointly analyzes multiple fisheries or survey datasets 
+and explicitly accounts for preferential sampling.
 
 ## Installation
 
 ``` r
 # install.packages("remotes")
-remotes::install_github("YOUR_GITHUB/intCPUE")
+remotes::install_github("RujiaBi/intCPUE")
 ```
 
 ## Quick example

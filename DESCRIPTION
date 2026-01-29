@@ -27,6 +27,7 @@ Imports:
 LinkingTo:
     RcppEigen,
     TMB
-	ByteCompile: true
+ByteCompile: true
+SystemRequirements: C++17
 URL: https://github.com/RujiaBi/intCPUE
 BugReports: https://github.com/RujiaBi/intCPUE/issues

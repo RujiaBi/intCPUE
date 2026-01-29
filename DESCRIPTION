@@ -4,7 +4,7 @@ Title: Integrated TMB-Based Framework for CPUE Standardization
 Version: 0.0.0.9000
 Authors@R: 
     person("Rujia", "Bi", email = "rbi@iattc.org", role = c("aut", "cre"))
-Description: The intCPUE provides an integrated, TMB-based framework for CPUE standardization that jointly analyzes multiple fisheries or survey datasets and explicitly accounts for preferential sampling.for preferential sampling.
+Description: The intCPUE provides an integrated, TMB-based framework for CPUE standardization that jointly analyzes multiple fisheries or survey datasets and explicitly accounts for preferential sampling.
 License: GPL (>= 3)
 URL: https://github.com/RujiaBi/intCPUE
 Depends:

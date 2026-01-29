@@ -1,0 +1,8 @@
+*.o
+*.so
+*.dll
+*.a
+*.lib
+*.Rproj.user
+inst/doc
+.Rproj.user

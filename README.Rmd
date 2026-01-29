@@ -1,0 +1,27 @@
+---
+output: github_document
+---
+
+# intCPUE
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+## Overview
+
+`intCPUE` provides an integrated, TMB-based framework for CPUE standardization with spatial and spatiotemporal SPDE random fields and optional smooth terms.
+
+## Installation
+
+```r
+# install.packages("remotes")
+remotes::install_github("YOUR_GITHUB/intCPUE")
+```
+
+## Quick example
+
+```r
+library(intCPUE)
+# fit <- intCPUE(formula, data, ...)
+```
+

@@ -27,7 +27,15 @@ Imports:
 LinkingTo:
     RcppEigen,
     TMB
-ByteCompile: true
-SystemRequirements: C++17
+VignetteBuilder:
+    knitr	
 URL: https://github.com/RujiaBi/intCPUE
 BugReports: https://github.com/RujiaBi/intCPUE/issues
+ByteCompile: true
+Config/testthat/edition: 3
+Config/testthat/parallel: true
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+SystemRequirements: GNU make

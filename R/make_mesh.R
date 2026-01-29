@@ -136,7 +136,7 @@ make_mesh <- function(
     E1       = E1,
     E2       = E2,
     TV       = TV - 1,  # 0-based for C++/TMB
-    G0       = inla_spde$param.inla$M0
+    G0       = inla_spde$param.inla$M0,
     G0_inv   = methods::as(diag(1 / diag(inla_spde$param.inla$M0)), "TsparseMatrix")
   )
 }

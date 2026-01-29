@@ -3,11 +3,14 @@ Type: Package
 Title: Integrated TMB-Based Framework for CPUE Standardization
 Version: 0.0.0.9000
 Authors@R: 
-    person("Rujia", "Bi", email = "rbi@iattc.org", role = c("aut", "cre"))
+    person("Rujia", "Bi", , "rbi@iattc.org", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-1954-6797"))
 Description: The intCPUE provides an integrated, TMB-based framework for CPUE standardization that 
     jointly analyzes multiple fisheries or survey datasets and explicitly accounts for preferential sampling.
 License: GPL (>= 3)
-URL: https://github.com/RujiaBi/intCPUE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
 Depends:
     R (>= 4.4.0)
 Imports:
@@ -15,24 +18,14 @@ Imports:
     mgcv,
     rlang,
     stats,
-    TMB (>= 1.8.0)
-Suggests:
-    knitr,
-    rmarkdown,
-    testthat (>= 3.0.0),
-    ggplot2,
-    dplyr,
-    tidyr,
-    sf
+	sf,
+	sp,
+	dplyr,
+	INLA,
+	fmesher,
+	TMB
 LinkingTo:
     RcppEigen,
     TMB
-VignetteBuilder:
-    knitr
-ByteCompile: true
-Config/testthat/edition: 3
-Encoding: UTF-8
-LazyData: true
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
-SystemRequirements: GNU make
+URL: https://github.com/RujiaBi/intCPUE
+BugReports: https://github.com/RujiaBi/intCPUE/issues

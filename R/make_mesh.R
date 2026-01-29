@@ -44,7 +44,7 @@ make_mesh <- function(
 
 # Internal: UTM transform + shared scaling
 .prep_utm_scaled <- function(data_input, utm_zone = NULL, coord_scale = "auto") {
-  zones_each <- floor((data_input$lonc1 + 180) / 6) + 1
+  zones_each <- floor((data_input$lon + 180) / 6) + 1
   if (is.null(utm_zone)) {
     tab <- table(zones_each)
     utm_zone <- as.integer(names(tab)[which.max(tab)])

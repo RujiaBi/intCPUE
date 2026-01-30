@@ -190,8 +190,7 @@ make_data <- function(
       sm_dims = sm_dims,
       b_smooth_start = b_smooth_start,
       K_smooth = ncol(Xs),
-      n_smooth = length(Zs),
-      n_report = n_report
+      n_smooth = length(Zs)
     )
   )
 }

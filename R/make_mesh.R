@@ -113,30 +113,3 @@ make_mesh <- function(
   
   list(key = key, area_scale_val = area_scale_val, A_gs = A_gs)
 }
-
-# Internal: anisotropy prep
-.prep_anisotropy <- function(mesh, inla_spde) {
-  Dset <- 1:2
-  TV <- mesh$graph$tv
-  V0 <- mesh$loc[TV[, 1], Dset]
-  V1 <- mesh$loc[TV[, 2], Dset]
-  V2 <- mesh$loc[TV[, 3], Dset]
-  E0 <- V2 - V1
-  E1 <- V0 - V2
-  E2 <- V1 - V0
-  
-  tmp_det <- function(a, b) abs(det(rbind(a, b)))
-  Tri_Area <- vapply(seq_len(nrow(E0)), function(i) tmp_det(E0[i, ], E1[i, ]) / 2, numeric(1))
-
-  list(
-    n_s      = mesh$n,
-    n_tri    = nrow(TV),
-    Tri_Area = Tri_Area,
-    E0       = E0,
-    E1       = E1,
-    E2       = E2,
-    TV       = TV - 1,  # 0-based for C++/TMB
-    G0       = inla_spde$param.inla$M0,
-    G0_inv   = methods::as(diag(1 / diag(inla_spde$param.inla$M0)), "TsparseMatrix")
-  )
-}

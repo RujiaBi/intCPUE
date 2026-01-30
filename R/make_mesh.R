@@ -44,7 +44,7 @@ make_mesh <- function(
 
 # Internal: UTM transform + shared scaling
 .prep_utm_scaled <- function(data_input, utm_zone = NULL, coord_scale = "auto") {
-  zones_each <- floor((data_input$lon + 180) / 6) + 1
+  zones_each <- floor((data_input$lonc1 + 180) / 6) + 1
   if (is.null(utm_zone)) {
     tab <- table(zones_each)
     utm_zone <- as.integer(names(tab)[which.max(tab)])
@@ -112,4 +112,41 @@ make_mesh <- function(
   A_gs <- fmesher::fm_basis(mesh, loc = as.matrix(key[, c("utm_x_scale", "utm_y_scale")]))
   
   list(key = key, area_scale_val = area_scale_val, A_gs = A_gs)
+}
+
+# Internal: anisotropy prep
+.prep_anisotropy <- function(mesh, inla_spde) {
+  Dset <- 1:2
+  TV <- mesh$graph$tv
+  V0 <- mesh$loc[TV[, 1], Dset]
+  V1 <- mesh$loc[TV[, 2], Dset]
+  V2 <- mesh$loc[TV[, 3], Dset]
+  E0 <- V2 - V1
+  E1 <- V0 - V2
+  E2 <- V1 - V0
+  
+  tmp_det <- function(a, b) abs(det(rbind(a, b)))
+  Tri_Area <- vapply(seq_len(nrow(E0)), function(i) tmp_det(E0[i, ], E1[i, ]) / 2, numeric(1))
+  
+  M0 <- inla_spde$param.inla$M0
+  d0 <- if (inherits(M0, "Matrix")) Matrix::diag(M0) else as.numeric(M0)
+  G0 <- if (inherits(M0, "Matrix")) M0 else Matrix::Diagonal(x = d0)
+  
+  eps <- 1e-12
+  G0_inv <- Matrix::Diagonal(x = 1 / pmax(as.numeric(d0), eps))
+  
+  G0     <- methods::as(G0, "TsparseMatrix")
+  G0_inv <- methods::as(G0_inv, "TsparseMatrix")
+  
+  list(
+    n_s      = mesh$n,
+    n_tri    = nrow(TV),
+    Tri_Area = Tri_Area,
+    E0       = E0,
+    E1       = E1,
+    E2       = E2,
+    TV       = TV - 1,  # 0-based for C++/TMB
+    G0       = G0,
+    G0_inv   = G0_inv
+  )
 }

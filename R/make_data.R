@@ -173,32 +173,7 @@ make_data <- function(
     b_smooth_start = b_smooth_start
   )
   
-  # ---- SPDE data ----
-  Dset = 1:2
-  # Triangle info
-  TV = mesh$graph$tv           # Triangle to vertex indexing
-  V0 = mesh$loc[TV[,1],Dset]   # V = vertices for each triangle
-  V1 = mesh$loc[TV[,2],Dset]
-  V2 = mesh$loc[TV[,3],Dset]
-  E0 = V2 - V1                      # E = edge for each triangle
-  E1 = V0 - V2
-  E2 = V1 - V0  
-  # Calculate Areas
-  TmpFn = function(Vec1, Vec2) abs(det( rbind(Vec1, Vec2) ))
-  Tri_Area = rep(NA, nrow(E0))
-  for(i in 1:length(Tri_Area)) Tri_Area[i] = TmpFn( E0[i,],E1[i,] )/2   # T = area of each triangle
-  # ---------- End code that prepare objects for anisotropy. 
-  
-  data$spde <- list(
-    "n_s"      = mesh$n,
-    "n_tri"    = nrow(TV),
-    "Tri_Area" = Tri_Area,
-    "E0"       = E0,
-    "E1"       = E1,
-    "E2"       = E2,
-    "TV"       = TV - 1,
-    "G0"       = inla_spde$param.inla$M0,
-    G0_inv     = methods::as(diag(1/diag(inla_spde$param.inla$M0)), "TsparseMatrix"))
+  data$spde <- .prep_anisotropy(mesh = mesh, inla_spde = inla_spde)
   
   list(
     mesh = mesh,
@@ -216,6 +191,7 @@ make_data <- function(
       b_smooth_start = b_smooth_start,
       K_smooth = ncol(Xs),
       n_smooth = length(Zs),
+      n_report = n_report
     )
   )
 }

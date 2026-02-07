@@ -44,9 +44,9 @@ For questions, suggestions, or collaboration, please contact:
 
 If you use **intCPUE** in your work, please cite it as software:
 
-> Bi, R. (2026). *intCPUE: Integrated CPUE standardization with TMB*. R package (development version). https://github.com/RujiaBi/intCPUE.
+> Bi, R. (2026). *intCPUE: Integrated CPUE standardization with TMB*. R package (v0.1.0). https://github.com/RujiaBi/intCPUE.
 
-(Once a paper or DOI is available, this section will be updated.)
+Once a paper or DOI is available, this section will be updated.
 
 # Installation (development version)
 

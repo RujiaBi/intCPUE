@@ -1,17 +1,24 @@
 ---
-output: github_document
+title: "intCPUE"
+output: 
+  github_document:
+    toc: true
+    toc_depth: 3
+    df_print: "tibble"
 ---
-
-```{r setup, echo=FALSE, cache=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  message = FALSE,
-  warning = FALSE
+  fig.path = "man/figures/README-",
+  out.width = "50%",
+  cache = FALSE,
+  autodep = TRUE,
+  dpi = 72
 )
 ```
 
-# intCPUE
+# Overview
 
 **intCPUE** is a TMB-based framework for integrated CPUE standardization across multiple fisheries or surveys,
 with optional preferential sampling correction (under development).
@@ -26,6 +33,20 @@ The model supports:
 
 Here provides a minimal workflow:
     install → data preparation → projection → mesh → model fitting → index extraction
+    
+# Contact
+
+For questions, suggestions, or collaboration, please contact:
+
+- **Rujia Bi** — <rbi@iattc.org>
+
+# Citation
+
+If you use **intCPUE** in your work, please cite it as software:
+
+> Bi, R. (2026). *intCPUE: Integrated CPUE standardization with TMB*. R package (development version). https://github.com/RujiaBi/intCPUE.
+
+(Once a paper or DOI is available, this section will be updated.)
 
 # Installation (development version)
 

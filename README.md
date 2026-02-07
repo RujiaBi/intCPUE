@@ -1,5 +1,27 @@
+intCPUE
+================
 
-# intCPUE
+- [Overview](#overview)
+- [Contact](#contact)
+- [Citation](#citation)
+- [Installation (development
+  version)](#installation-development-version)
+- [Data structure](#data-structure)
+  - [Important](#important)
+- [Coordinate projection (lon/lat →
+  UTM)](#coordinate-projection-lonlat--utm)
+- [Build spatial mesh](#build-spatial-mesh)
+  - [K-means mesh](#k-means-mesh)
+  - [Cutoff mesh](#cutoff-mesh)
+  - [Tailor mesh](#tailor-mesh)
+  - [Custom mesh](#custom-mesh)
+- [Fit the model](#fit-the-model)
+  - [Catchability components](#catchability-components)
+- [Getting indices with bias
+  correction](#getting-indices-with-bias-correction)
+- [Next steps](#next-steps)
+
+# Overview
 
 **intCPUE** is a TMB-based framework for integrated CPUE standardization
 across multiple fisheries or surveys, with optional preferential
@@ -16,6 +38,21 @@ The model supports:
 
 Here provides a minimal workflow: install → data preparation →
 projection → mesh → model fitting → index extraction
+
+# Contact
+
+For questions, suggestions, or collaboration, please contact:
+
+- **Rujia Bi** — <rbi@iattc.org>
+
+# Citation
+
+If you use **intCPUE** in your work, please cite it as software:
+
+> Bi, R. (2026). *intCPUE: Integrated CPUE standardization with TMB*. R
+> package (development version). <https://github.com/RujiaBi/intCPUE>.
+
+(Once a paper or DOI is available, this section will be updated.)
 
 # Installation (development version)
 

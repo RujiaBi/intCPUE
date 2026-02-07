@@ -1,0 +1,78 @@
+The intCPUE package as a whole is distributed under GPL-3 (GNU General Public
+License Version 3).
+
+This package contains original code together with modified code fragments
+adapted from the following open-source projects:
+
+  • VAST — https://github.com/James-Thorson-NOAA/VAST
+  • sdmTMB — https://github.com/sdmTMB/sdmTMB
+  • mgcv — https://CRAN.R-project.org/package=mgcv
+  • brms — https://CRAN.R-project.org/package=brms
+  • TMB examples — https://github.com/kaskr/adcomp/tree/master/tmb_examples
+
+----------------------------------------------------------------------
+GPL-3 derived components
+----------------------------------------------------------------------
+
+The following parts of intCPUE contain modified code derived from GPL-3
+licensed software.
+
+VAST
+
+Modified code fragments and structural patterns adapted from VAST are used in:
+
+  src/intCPUE.cpp
+    spatiotemporal likelihood structure
+
+  R/index.R
+    bias-correction workflow
+
+  R/extra-optimization.R
+    multi-stage optimization pattern
+
+The statistical model implemented in intCPUE is different from VAST and
+is designed for integrated CPUE standardization with preferential sampling.
+
+sdmTMB
+
+Modified helper workflows derived from sdmTMB are used in:
+
+  R/smoothers.R
+    mgcv smoother parsing and random-effect conversion
+
+  R/make_mesh.R
+    mesh construction workflow patterns
+
+These implementations were adapted for the intCPUE framework and are not
+statistically equivalent to sdmTMB.
+
+----------------------------------------------------------------------
+GPL-2 derived components
+----------------------------------------------------------------------
+
+mgcv documentation
+  smooth2random() prediction helper adapted as s2rPred()
+  (R/smoothers.R)
+
+brms
+  Formula parsing helpers rm_wsp() and all_terms()
+  (R/smoothers.R)
+
+TMB examples (kaskr/adcomp)
+  Anisotropy SPDE helper (.prep_anisotropy)
+  (R/make_mesh.R and src/intCPUE.cpp)
+
+----------------------------------------------------------------------
+Notes
+----------------------------------------------------------------------
+
+intCPUE does not redistribute any upstream package in compiled form.
+All referenced software remains available from their original sources.
+Only adapted code fragments and methodological patterns are included.
+
+Any errors introduced through modification are the responsibility of the
+intCPUE authors and not the original project authors.
+
+The original licenses of the referenced projects remain in effect for the
+respective portions of code.
+

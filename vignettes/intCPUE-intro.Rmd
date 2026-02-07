@@ -1,9 +1,30 @@
+---
+title: "Getting started with intCPUE"
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+vignette: >
+  %\VignetteIndexEntry{Getting started with intCPUE}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+---
 
-# intCPUE
+```{r setup, echo=FALSE, cache=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = FALSE,
+  error = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+```
 
-**intCPUE** is a TMB-based framework for integrated CPUE standardization
-across multiple fisheries or surveys, with optional preferential
-sampling correction (under development).
+# Overview
+
+**intCPUE** is a TMB-based framework for integrated CPUE standardization across multiple fisheries or surveys,
+with optional preferential sampling correction (under development).
 
 The model supports:
 
@@ -11,20 +32,19 @@ The model supports:
 
 - multiple fleets / surveys through catchability components
 
-- mgcv-style `s()` smooth terms parsed into mixed-effects from inside
-  TMB
+- mgcv-style `s()` smooth terms parsed into mixed-effects from inside TMB
 
-Here provides a minimal workflow: install → data preparation →
-projection → mesh → model fitting → index extraction
+This vignette provides a minimal workflow:
+    install → data preparation → projection → mesh → model fitting → index extraction
 
 # Installation (development version)
 
-``` r
+```r
 # install.packages("remotes")
 remotes::install_github("RujiaBi/intCPUE")
 ```
 
-``` r
+```r
 library(intCPUE)
 ```
 
@@ -32,19 +52,19 @@ library(intCPUE)
 
 An intCPUE model requires a data frame that containing:
 
-- `cpue` — positive catch rate
+* `cpue` — positive catch rate  
 
-- `encounter` — encounter indicator / effort component
+* `encounter` — encounter indicator / effort component  
 
-- `lon`, `lat` — geographic coordinates
+* `lon`, `lat` — geographic coordinates  
 
-- `vesid` — vessel ID (0-based)
+* `vesid` — vessel ID (0-based)  
 
-- `tid` — time index (0-based)
+* `tid` — time index (0-based)  
 
-- `flagid` — fishery / survey ID (0-based; 0 = reference fishery)
+* `flagid` — fishery / survey ID (0-based; 0 = reference fishery)
 
-``` r
+```r
 # Borrow `pcod` from `sdmTMB`
 data_input <- data.frame(
   "cpue" = pcod$density,
@@ -76,7 +96,7 @@ Longitude may be in either -180..180 or 0..360.
 
 - scales coordinates for numerical stability
 
-``` r
+```r
 utm <- make_utm(data_input, utm_zone = NULL, coord_scale = "auto")
 data_utm <- utm$data_utm
 ```
@@ -88,7 +108,7 @@ The mesh must be constructed using the scaled projected coordinates:
 
 ## K-means mesh
 
-``` r
+```r
 # Add `intCPUE::` to avoid confusion with `sdmTMB::make_mesh`
 # Will improve when own example data available
 mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "kmeans", n_knots = 50)
@@ -96,15 +116,13 @@ plot(mesh)
 ```
 
 ## Cutoff mesh
-
-``` r
+```r
 mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 plot(mesh)
 ```
 
 ## Tailor mesh
-
-``` r
+```r
 mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
     convex = -0.1,         # for a finer boundary
     max.edge = c(0.5, 2),   # max triangle edge length; inner and outer meshes
@@ -114,8 +132,7 @@ plot(mesh)
 ```
 
 ## Custom mesh
-
-``` r
+```r
 bnd <- INLA::inla.nonconvex.hull(cbind(data_utm$utm_x_scale, data_utm$utm_y_scale), convex = -0.1)
 mesh_inla <- INLA::inla.mesh.2d(
   boundary = bnd,
@@ -127,11 +144,10 @@ plot(mesh)
 
 # Fit the model
 
-``` r
+```r
 formula_1 <- "cpue ~ 1"
 formula_2 <- "cpue ~ 1 + s(depth)"
 ```
-
 Interpretation of `~ 1`:
 
 Both encounter and positive components include:
@@ -142,7 +158,7 @@ Both encounter and positive components include:
 
 - spatiotemporal random field (`epsilon`)
 
-``` r
+```r
 ncores <- 4
 mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 fit <- intCPUE(
@@ -159,21 +175,20 @@ fit <- intCPUE(
 
 ## Catchability components
 
-- `q_diffs_system` — systematic catchability difference among fisheries
-  (i.e., factor effect)
+* `q_diffs_system` — systematic catchability difference among fisheries (i.e., factor effect)
 
-- `q_diffs_time` — time-varying catchability difference
+* `q_diffs_time` — time-varying catchability difference 
 
-- `q_diffs_spatial` — spatial catchability difference
+* `q_diffs_spatial` — spatial catchability difference
 
 For the reference fishery (`flagid = 0`), these are constrained to 0.
 
 # Getting indices with bias correction
 
-``` r
-index <- intCPUE::get_index(fit)
+```r
+indices <- intCPUE::get_index(fit)
 library(ggplot2)
-ggplot(index, aes(time, index)) +
+ggplot(indices, aes(time, index)) +
   geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey90") +
   geom_line(lwd = 1, colour = "grey30") +
   labs(x = "Time", y = "Biomass")

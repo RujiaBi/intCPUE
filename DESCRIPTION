@@ -7,24 +7,25 @@ Authors@R:
            comment = c(ORCID = "0000-0002-1954-6797"))
 Description: The intCPUE provides an integrated, TMB-based framework for CPUE standardization that 
     jointly analyzes multiple fisheries or survey datasets and explicitly accounts for preferential sampling.
-License: GPL (>= 3)
+License: GPL-3
+Notice: inst/NOTICE
 Depends:
     R (>= 4.4.0)
 Imports:
     Matrix,
-	methods,
+    methods,
     mgcv,
-    rlang,
     stats,
-	sf,
-	sp,
-	dplyr,
-	INLA,
-	fmesher,
-	TMB
+    fmesher,
+    TMB,
+    sf
 LinkingTo:
     RcppEigen,
     TMB
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
 VignetteBuilder:
     knitr	
 URL: https://github.com/RujiaBi/intCPUE

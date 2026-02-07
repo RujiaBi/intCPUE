@@ -1,98 +1,89 @@
 #' Prepare data objects and mesh for intCPUE workflows
 #'
 #' Main data-prep function for intCPUE.
-#' - UTM transform + shared scaling
 #' - mesh/SPDE/A matrices
 #' - extrapolation key grid + areas
 #' - parse smoothers (mgcv s()) into Xs/Zs
 #'
 #' @param formula A model formula. Smooth terms must use s().
-#' @param data_input A data.frame containing required columns.
-#' @param utm_zone Optional integer. If NULL, uses the mode of per-record UTM zones.
-#' @param coord_scale Numeric or "auto". Shared scaling factor for UTM x and y.
+#' @param data_utm A data.frame containing required columns (with utm_x/y_scale)
+#' @param mesh intCPUEmesh built from make_mesh(), or a custom mesh
 #' @param area_scale Numeric or "auto". Scaling factor for area_km2.
-#' @param concave,convex,resx,resy,max_edge,bound_outer,inner_mesh_length,outer_mesh_length,cutoff_set
-#'   Passed to make_mesh().
 #'
-#' @return A list with elements mesh, data, combined_data, key, scales, smooth_basis, smooth_info.
+#' @return A list with elements mesh, data, key, scales, smooth_basis, smooth_info.
 #' @author Rujia Bi \email{rbi@@iattc.org}
 #' @export
 make_data <- function(
     formula,
-    data_input,
-    utm_zone = NULL,
-    coord_scale = "auto",
-    area_scale = "auto",
-    concave = -0.05,
-    convex  = -0.05,
-    resx = 100,
-    resy = 100,
-    max_edge = 0.5,
-    bound_outer = 1,
-    inner_mesh_length = 1,
-    outer_mesh_length = 3,
-    cutoff_set = 2
+    data_utm,
+    mesh,
+    area_scale = "auto"
 ) {
-  data_input <- as.data.frame(data_input)
+  data_utm <- as.data.frame(data_utm)
   
-  .check_required_cols(data_input, c("cpue", "encounter", "lon", "lat", "vesid", "tid", "flagid"))
-  .check_numeric(data_input, c("cpue", "encounter", "lon", "lat", "vesid", "tid", "flagid"))
+  .check_required_cols(data_utm, c("cpue", "encounter", "lon", "lat", "vesid", "tid", "flagid", "utm_x_scale", "utm_y_scale"))
+  .check_numeric(data_utm, c("cpue", "encounter", "lon", "lat", "vesid", "tid", "flagid", "utm_x_scale", "utm_y_scale"))
   
-  if (anyNA(data_input$lon) || anyNA(data_input$lat)) {
+  if (anyNA(data_utm$lon) || anyNA(data_utm$lat)) {
     stop("`lon`/`lat` must not contain NA.", call. = FALSE)
   }
   
-  # ---- coords -> UTM + scaling ----
-  utm <- .prep_utm_scaled(data_input, utm_zone = utm_zone, coord_scale = coord_scale)
-  combined_data <- utm$combined_data
+  if (anyNA(data_utm$utm_x_scale) || anyNA(data_utm$utm_y_scale)) {
+    stop("`utm_x_scale`/`utm_y_scale` must not contain NA.", call. = FALSE)
+  }
   
+  # ---- SPDE + A matrix (handle intCPUEmesh or bare mesh) ----
+  loc_xy <- as.matrix(data_utm[, c("utm_x_scale", "utm_y_scale"), drop = FALSE])
   
-  # ---- mesh ----
-  mesh <- make_mesh(
-    combined_data$utm_x_scale,
-    combined_data$utm_y_scale,
-    concave = concave,
-    convex  = convex,
-    resx = resx,
-    resy = resy,
-    max_edge = max_edge,
-    bound_outer = bound_outer,
-    inner_mesh_length = inner_mesh_length,
-    outer_mesh_length = outer_mesh_length,
-    cutoff_set = cutoff_set
+  # mesh can be:
+  #  - intCPUEmesh from make_mesh()
+  #  - a bare fmesher mesh object (mesh$mesh)
+  mesh_in <- mesh
+  mesh_obj <- .as_intCPUEmesh(
+    mesh = mesh_in,
+    loc_xy = loc_xy,
+    xy_cols = c("utm_x_scale", "utm_y_scale"),
+    recompute_A = "auto"
   )
+  
+  if (!is.null(mesh_obj$loc_xy)) {
+    r1 <- range(mesh_obj$loc_xy[,1]); r2 <- range(loc_xy[,1])
+    if (is.finite(r1[1]) && is.finite(r2[1])) {
+      if (abs(diff(r1) - diff(r2)) / max(1e-12, diff(r2)) > 0.5) {
+        warning("Mesh coordinate scale may not match `utm_x_scale/utm_y_scale`. Check scaling.", call. = FALSE)
+      }
+    }
+  }
+  
+  mesh <- mesh_obj$mesh
   
   # ---- SPDE (INLA) ----
-  inla_spde <- INLA::inla.spde2.pcmatern(
-    mesh,
-    prior.range = c(diff(range(mesh$loc[, 1])) / 5, 0.05),
-    prior.sigma = c(1, 0.05)
-  )
+  spde <- mesh_obj$spde
   
   # ---- A matrices ----
-  A_is  <- fmesher::fm_basis(mesh, loc = as.matrix(combined_data[, c("utm_x_scale", "utm_y_scale")]))
+  A_is <- mesh_obj$A
   A_isT <- methods::as(A_is, "TsparseMatrix")
   Ais_ij <- cbind(A_isT@i, A_isT@j)
   Ais_x  <- A_is@x
   
   # ---- key/extrapolation grid ----
-  key_out <- .prep_key_area(combined_data, mesh, area_scale = area_scale)
+  key_out <- .prep_key_area(data_utm, mesh, area_scale = area_scale)
   key <- key_out$key
   A_gs <- key_out$A_gs
   
-  # ---- smooth parsing (sdmTMB style: Xs + Zs list) ----
+  # ---- smooth parsing ----
   # parse_smoothers() should:
   # - keep nrow(data) unchanged (na.pass internally or your own NA->0 logic)
   # - return $Xs (matrix), $Zs (list of sparse matrices), $sm_dims, $b_smooth_start
   sm <- parse_smoothers(
     formula = formula,
-    data    = combined_data,
+    data    = data_utm,
     knots   = NULL,
     newdata = NULL,
     basis_prev = NULL
   )
   
-  n_i <- nrow(combined_data)
+  n_i <- nrow(data_utm)
   
   if (!isTRUE(sm$has_smooths)) {
     Xs <- matrix(0, nrow = n_i, ncol = 0L)
@@ -136,19 +127,45 @@ make_data <- function(
     }
   }
   
+  # ---- user-supplied 0-based indices: validate only ----
+  t_chk <- .check_0based_contiguous(data_utm$tid, "tid")
+  v_chk <- .check_0based_contiguous(data_utm$vesid, "vesid")
+  f_chk <- .check_0based_contiguous(data_utm$flagid, "flagid")
+  
+  t_i <- t_chk$x
+  v_i <- v_chk$x
+  f_i <- f_chk$x
+  
+  n_t <- t_chk$n
+  n_v <- v_chk$n
+  n_f <- f_chk$n
+  
+  # ---- build has_tf: n_t x (n_f-1), for flag-specific time effects ----
+  has_tf <- matrix(FALSE, nrow = n_t, ncol = max(0L, n_f - 1L))
+  if (n_f > 1L) {
+    ii <- which(f_i > 0L)  # exclude baseline 0
+    if (length(ii) > 0L) {
+      tt <- t_i[ii] + 1L   # R matrix rows are 1-based
+      ff <- f_i[ii]        # 1..(n_f-1), columns are 1-based already
+      has_tf[cbind(tt, ff)] <- TRUE
+    }
+  }
+  
   # ---- assemble data list for TMB ----
   data <- list(
     n_i = n_i,
-    n_t = length(unique(combined_data$tid)),
-    n_v = length(unique(combined_data$vesid)),
-    n_f = length(unique(combined_data$flagid)),
+    n_t = n_t,
+    n_v = n_v,
+    n_f = n_f,
     n_g = nrow(key),
     
-    b_i = combined_data$cpue,
-    e_i = combined_data$encounter,
-    t_i = combined_data$tid,
-    v_i = combined_data$vesid,
-    f_i = combined_data$flagid,
+    b_i = data_utm$cpue,
+    e_i = data_utm$encounter,
+    t_i = t_i,
+    v_i = v_i,
+    f_i = f_i,
+    
+    has_tf = has_tf * 1L,   # logical -> integer (for DATA_IMATRIX)
     
     area_g = key$area_km2_scaled,
     
@@ -173,14 +190,12 @@ make_data <- function(
     b_smooth_start = b_smooth_start
   )
   
-  data$spde <- .prep_anisotropy(mesh = mesh, inla_spde = inla_spde)
+  data$spde <- .prep_anisotropy(mesh = mesh, spde = spde)
   
   list(
-    mesh = mesh,
     data = data,
-    combined_data = combined_data,
     key = key,
-    scales = list(utm_scale = utm$utm_scale, area_scale = key_out$area_scale_val),
+    scales = list(area_scale = key_out$area_scale_val),
     
     # smooth outputs for plotting/prediction
     smooth_basis = sm$basis_out,

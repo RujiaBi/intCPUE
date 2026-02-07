@@ -2,43 +2,58 @@
 % Please edit documentation in R/fit.R
 \name{intCPUE}
 \alias{intCPUE}
-\title{Fit intCPUE model (encounter + positive)}
+\title{Fits a spatiotemporal generalized linear mixed-effects model (GLMM)
+using the TMB (Template Model Builder) R package. Spatial and spatiotemporal
+random fields are approximated using the SPDE (stochastic partial differential
+equation) approach, allowing efficient modeling of data that are correlated
+in space and/or time.}
 \usage{
 intCPUE(
   formula,
-  data,
-  DLL = "intCPUE",
+  data_utm,
+  mesh,
   vessel_effect = c("on", "off"),
+  q_diffs_system = c("on", "off"),
   q_diffs_time = c("on", "off"),
   q_diffs_spatial = c("on", "off"),
   control = list(eval.max = 1e+05, iter.max = 1e+05),
+  ncores = NULL,
   ...,
   silent = FALSE
 )
 }
 \arguments{
-\item{formula}{A model formula with optional mgcv::s() smooth terms.
-(For now, formula is used only to build smooth objects; other fixed effects
-are not yet parsed in this draft because your cpp currently only uses
-vessel/year/flag + spatial fields + smooths.)}
+\item{formula}{A model formula with optional mgcv::s() smooth terms.}
 
-\item{data}{A data.frame with required columns.}
+\item{data_utm}{A data.frame with required columns.}
 
-\item{DLL}{Name of compiled TMB DLL (without extension).}
+\item{mesh}{An \code{intCPUEmesh} or a bare fmesher mesh.}
 
 \item{vessel_effect}{"on" or "off". If "off", vessel RE is fixed at 0 via map.}
 
-\item{q_diffs_spatial}{"on" or "off". If "off", flag_s_1/2 spatial fields are fixed at 0 via map.}
+\item{q_diffs_system}{"on" or "off". If "off", flag systematic differences are fixed.}
 
-\item{control}{List. e.g. control = list(eval.max=1e5, iter.max=1e5, profile=FALSE)}
+\item{q_diffs_time}{"on" or "off". If "off", flag-specific temporal effects are fixed.}
 
-\item{...}{Passed to make_data() (mesh/scale settings).}
+\item{q_diffs_spatial}{"on" or "off". If "off", flag-specific spatial fields are fixed.}
+
+\item{control}{Control list passed to \code{\link[stats:nlminb]{stats::nlminb()}}.}
+
+\item{ncores}{Optional integer. If provided, sets the number of OpenMP threads. Passed to \code{\link[TMB:openmp]{TMB::openmp()}}.}
+
+\item{...}{Passed to \code{\link[=make_data]{make_data()}} (e.g., utm_zone, coord_scale, area_scale).}
+
+\item{silent}{Logical. Passed to \code{\link[TMB:MakeADFun]{TMB::MakeADFun()}}.}
 }
 \value{
-A list of class "intCPUE" containing obj, opt, rep, prep, maps, etc.
+An object of class \code{intCPUE} with elements \code{obj}, \code{opt}, \code{rep}, \code{prep}, etc.
 }
 \description{
-Fit intCPUE model (encounter + positive)
+Fits a spatiotemporal generalized linear mixed-effects model (GLMM)
+using the TMB (Template Model Builder) R package. Spatial and spatiotemporal
+random fields are approximated using the SPDE (stochastic partial differential
+equation) approach, allowing efficient modeling of data that are correlated
+in space and/or time.
 }
 \author{
 Rujia Bi \email{rbi@iattc.org}

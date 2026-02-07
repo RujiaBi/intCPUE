@@ -1,3 +1,14 @@
+# ------------------------------------------------------------------------------
+# Adapted from sdmTMB smoother parsing workflow (GPL-3)
+# https://github.com/sdmTMB/sdmTMB
+#
+# Includes helper utilities based on:
+#   brms internal functions (GPL-3)
+#   mgcv smooth2random documentation example (GPL-2)
+#
+# Modified in intCPUE to support NA-safe smooth evaluation.
+# ------------------------------------------------------------------------------
+
 # from brms:::rm_wsp()
 rm_wsp <- function (x) {
   out <- gsub("[ \t\r\n]+", "", x, perl = TRUE)
@@ -11,7 +22,7 @@ all_terms <- function (x) {
     return(character(0))
   }
   if (!inherits(x, "terms")) {
-    x <- terms(stats::as.formula(x))
+    x <- stats::terms(stats::as.formula(x))
   }
   rm_wsp(attr(x, "term.labels"))
 }
@@ -54,7 +65,6 @@ s2rPred <- function(sm, re, data) {
 # ---- NA->0 wrapper around PredictMat + smooth2random output -----------------
 # Goal: if any smooth covariate involved in sm is NA in a row, then
 # that row contributes 0 to BOTH fixed part (Xf) and random part (rand) matrices.
-
 .zero_rows_for_na <- function(sm, data, Xf, rand_list) {
   # sm$term contains all columns needed to evaluate the smoother (incl by vars)
   # Identify rows where ANY required term is NA:
@@ -85,9 +95,7 @@ s2rPred <- function(sm, re, data) {
 #   has_smooths, labels, classes, basis_out, sm_dims, b_smooth_start
 #
 # Notes:
-# - We keep sdmTMB's checks for bs="re" and fx=TRUE.
-# - We keep mgcv::smoothCon(... absorb.cons=TRUE, modCon=3, diagonal.penalty=FALSE).
-# - We do NOT support t2().
+# - keep mgcv::smoothCon(... absorb.cons=TRUE, modCon=3, diagonal.penalty=FALSE).
 # - NA handling:
 #   * For training data: we must feed mgcv something without NAs, so we
 #     temporarily replace NAs with safe values before calling smoothCon/smooth2random,

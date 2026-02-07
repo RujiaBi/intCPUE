@@ -1,4 +1,4 @@
-// Integrated CPUE standardization algorithm
+#define TMB_LIB_INIT R_init_intCPUE
 #define EIGEN_DONT_PARALLELIZE
 #include <TMB.hpp>
 #define _USE_MATH_DEFINES
@@ -92,6 +92,8 @@ Type objective_function<Type>::operator() ()
   DATA_IVECTOR(v_i); // Vessel for each observation
   DATA_IVECTOR(f_i); // Flag (gear) type (e.g., 0 = the reference, 1 = other 1, 2 = other 2, etc.) for each observation  
   
+  DATA_IMATRIX(has_tf); // n_t x (n_f-1), entries 0/1
+  
   DATA_VECTOR(area_g); // Area for each extrapolation-grid cell
   
   // Projection matrices from knots s to data i or extrapolation-grid cells x
@@ -111,7 +113,7 @@ Type objective_function<Type>::operator() ()
   // Smooth objects
   DATA_INTEGER(has_smooths);
   DATA_MATRIX(Xs);                 // n_i x K_smooth (linear part of smooths)
-  DATA_STRUCT(Zs, LOSM_t);   // list of n_i x k_s sparse basis matrices
+  DATA_STRUCT(Zs, LOSM_t);         // list of n_i x k_s sparse basis matrices
   DATA_IVECTOR(b_smooth_start);    // length = n_smooth, start index in b_smooth for each smooth block
 
   // Aniso SPDE objects
@@ -124,32 +126,45 @@ Type objective_function<Type>::operator() ()
   PARAMETER(ln_range_1); // SPDE hyper-parameter
   PARAMETER(ln_sigma_0_1); // Time-constant SPDE hyper-parameter
   PARAMETER(ln_sigma_t_1); // Time-varying SPDE hyper-parameter
-  PARAMETER(ln_sigma_flag_1); // SPDE hyper-parameter for differences in gear-specific catchability over space
+  
   PARAMETER(ln_range_2); // SPDE hyper-parameter
   PARAMETER(ln_sigma_0_2); // Time-constant SPDE hyper-parameter
   PARAMETER(ln_sigma_t_2); // Time-varying SPDE hyper-parameter
-  PARAMETER(ln_sigma_flag_2); // SPDE hyper-parameter for differences in gear-specific catchability over space
 
-  // Encounter probability (Poisson)
-  PARAMETER_VECTOR(ves_v_1); // Random vessel effect
-  PARAMETER_VECTOR(yq_t_1); // Year effect
-  PARAMETER_VECTOR(flag_f_1); // Differences in gear-specific catchability (that is, systematic difference)
-  PARAMETER_MATRIX(flag_s_1); // Differences in gear-specific catchability over space [s,n_f-1]
-  PARAMETER_VECTOR(omega_s_1); // Time-constant SPDE spatial field (over mesh nodes)
-  PARAMETER_MATRIX(epsilon_st_1); // Time-varying SPDE spatial field (over mesh nodes) across time [s,c]
-  PARAMETER(ves_ln_std_dev_1); // SD for random vessel effect
-  PARAMETER(flag_ln_std_dev_1); // SD for gear-specific catchability (systematic difference)
+  // Vessel random effects
+  PARAMETER_VECTOR(ves_v_1);
+  PARAMETER_VECTOR(ves_v_2);
+  PARAMETER(ves_ln_std_dev_1);
+  PARAMETER(ves_ln_std_dev_2);
   
-  // Positive catch (Lognormal)
-  PARAMETER_VECTOR(ves_v_2); // Random vessel effect 
-  PARAMETER_VECTOR(yq_t_2);  // Year effect
-  PARAMETER_VECTOR(flag_f_2); // Differences in gear-specific catchability
-  PARAMETER_MATRIX(flag_s_2); // Differences in gear-specific catchability over space [s,n_f-1]
-  PARAMETER_VECTOR(omega_s_2); // Time-constant SPDE spatial field (over mesh nodes) 
+  // Fixed temporal effects 
+  PARAMETER_VECTOR(yq_t_1); 
+  PARAMETER_VECTOR(yq_t_2);
+  
+  // Spatial fields
+  PARAMETER_VECTOR(omega_s_1); // Time-constant SPDE spatial field (over mesh nodes)
+  PARAMETER_VECTOR(omega_s_2); // Time-constant SPDE spatial field (over mesh nodes)
+  PARAMETER_MATRIX(epsilon_st_1); // Time-varying SPDE spatial field (over mesh nodes) across time [s,c]
   PARAMETER_MATRIX(epsilon_st_2); // Time-varying SPDE spatial field (over mesh nodes) across time [s,c]
-  PARAMETER(ves_ln_std_dev_2); // SD for random vessel effect
-  PARAMETER(flag_ln_std_dev_2); // SD for gear-specific catchability
+  
+  // Flag systematic differences
+  PARAMETER_VECTOR(flag_f_1);
+  PARAMETER_VECTOR(flag_f_2);
+  PARAMETER(flag_ln_std_dev_1); 
+  PARAMETER(flag_ln_std_dev_2); 
+  
+  // Flag temporal differences
+  PARAMETER_MATRIX(flag_t_1); 
+  PARAMETER_MATRIX(flag_t_2);
+  PARAMETER(flag_t_ln_std_dev_1); 
+  PARAMETER(flag_t_ln_std_dev_2); 
 
+  // Flag spatial differences
+  PARAMETER_MATRIX(flag_s_1); 
+  PARAMETER_MATRIX(flag_s_2);
+  PARAMETER(ln_sigma_flag_1); 
+  PARAMETER(ln_sigma_flag_2);
+  
   // Smoothers (two components: encounter=0, positive=1)
   // bs: coefficients for Xs (unpenalized part / linear part of smooth)
   PARAMETER_MATRIX(bs);              // [K_smooth, 2]
@@ -171,12 +186,14 @@ Type objective_function<Type>::operator() ()
   Type sigma_flag_1 = exp(ln_sigma_flag_1);  
   Type ves_std_dev_1 = exp(ves_ln_std_dev_1); 
   Type flag_std_dev_1 = exp(flag_ln_std_dev_1); 
+  Type flag_t_std_dev_1 = exp(flag_t_ln_std_dev_1); 
   Type range_2      = exp(ln_range_2);
   Type sigma_0_2    = exp(ln_sigma_0_2);
   Type sigma_t_2    = exp(ln_sigma_t_2);
   Type sigma_flag_2 = exp(ln_sigma_flag_2); 
   Type ves_std_dev_2 = exp(ves_ln_std_dev_2);
-  Type flag_std_dev_2 = exp(flag_ln_std_dev_2); 
+  Type flag_std_dev_2 = exp(flag_ln_std_dev_2);
+  Type flag_t_std_dev_2 = exp(flag_t_ln_std_dev_2); 
   
   // SPDE hyper transforms
   Type kappa_1 = sqrt(Type(8.0)) / range_1;
@@ -265,11 +282,20 @@ Type objective_function<Type>::operator() ()
     nll -= dnorm(ves_v_1(i), Type(0.0), ves_std_dev_1, true);
   }
   
-  // Differences in gear-specific catchability
+  // Differences in gear-speciafic catchability
   for(int i=0; i<n_f-1; i++){
     nll -= dnorm(flag_f_1(i), Type(0.0), flag_std_dev_1, true);
   }
 
+  // Differences in gear-specific catchability over time
+  for(int j=0; j<n_f-1; j++){
+    for(int t=0; t<n_t; t++){
+      if (has_tf(t, j) == 1) {
+        nll -= dnorm(flag_t_1(t, j), Type(0.0), flag_t_std_dev_1, true);
+      }
+	}
+  }
+  
   // Differences in gear-specific catchability over space
   for(int i=0; i<n_f-1; i++){
     nll += SCALE(GMRF(Q_1), 1./tau_flag_1)(flag_s_1.col(i));
@@ -296,11 +322,49 @@ Type objective_function<Type>::operator() ()
     nll -= dnorm(flag_f_2(i), Type(0.0), flag_std_dev_2, true);
   }
   
+  // Differences in gear-specific catchability over time
+  for(int j=0; j<n_f-1; j++){
+    for(int t=0; t<n_t; t++){
+      if (has_tf(t, j) == 1) {
+        nll -= dnorm(flag_t_2(t, j), Type(0.0), flag_t_std_dev_2, true);
+	  }
+    }
+  }
+  
   // Differences in gear-specific catchability over space
   for(int i=0; i<n_f-1; i++){
     nll += SCALE(GMRF(Q_2), 1./tau_flag_2)(flag_s_2.col(i));
   }
-             
+  
+  
+  // ---- mean-centering for flag_t over observed times (per flag column) ----
+  vector<Type> flag_t_mean_1(n_f - 1);
+  vector<Type> flag_t_mean_2(n_f - 1);
+  flag_t_mean_1.setZero();
+  flag_t_mean_2.setZero();
+
+  if (n_f > 1) {
+    for (int j = 0; j < n_f - 1; j++) {
+      Type sum1 = 0.0, sum2 = 0.0;
+      Type cnt  = 0.0;
+      for (int t = 0; t < n_t; t++) {
+        if (has_tf(t, j) == 1) {
+          sum1 += flag_t_1(t, j);
+          sum2 += flag_t_2(t, j);
+          cnt  += 1.0;
+        }
+      }
+      if (cnt > 0) {
+        flag_t_mean_1(j) = sum1 / cnt;
+        flag_t_mean_2(j) = sum2 / cnt;
+      } else {
+        // no data at all for this flag column across time: mean stays 0
+        flag_t_mean_1(j) = 0.0;
+        flag_t_mean_2(j) = 0.0;
+      }
+    }
+  }
+    
 	
   // ---- Smooth contributions (eta_smooth_1, eta_smooth_2) + priors ----
   vector<Type> eta_smooth_1(n_i); // encounter part
@@ -382,8 +446,23 @@ Type objective_function<Type>::operator() ()
 	Type yq_effect_2 = yq_t_2(tid);
 	Type flag_effect_2 = (fid == 0) ? Type(0) : flag_f_2(fid-1);  // if fid=0，flag_effect_2 = 0
 	
-	Type eta1 = ves_effect_1 + yq_effect_1 + flag_effect_1 + flag_s_effect_1(i) + s_effect_1(i) + st_effect_1(i) + eta_smooth_1(i); 					   
-    Type eta2 = ves_effect_2 + yq_effect_2 + flag_effect_2 + flag_s_effect_2(i) + s_effect_2(i) + st_effect_2(i) + eta_smooth_2(i); 
+	Type flag_t_effect_1 = Type(0);
+    Type flag_t_effect_2 = Type(0);
+
+    if (fid > 0) {
+      int j = fid - 1; // column index in flag_t
+      // only apply if (t,flag) is observed; otherwise force 0
+      if (has_tf(tid, j) == 1) {
+        flag_t_effect_1 = flag_t_1(tid, j) - flag_t_mean_1(j);
+        flag_t_effect_2 = flag_t_2(tid, j) - flag_t_mean_2(j);
+      } else {
+        flag_t_effect_1 = 0.0;
+        flag_t_effect_2 = 0.0;
+      }
+    }
+
+	Type eta1 = ves_effect_1 + yq_effect_1 + flag_effect_1 + flag_t_effect_1 + flag_s_effect_1(i) + s_effect_1(i) + st_effect_1(i) + eta_smooth_1(i); 					   
+    Type eta2 = ves_effect_2 + yq_effect_2 + flag_effect_2 + flag_t_effect_2 + flag_s_effect_2(i) + s_effect_2(i) + st_effect_2(i) + eta_smooth_2(i); 
 	  
     // Poisson-link; i.e., complementary log–log (cloglog)
     Type log_one_minus_p = -1.0*exp(eta1);
@@ -436,13 +515,14 @@ Type objective_function<Type>::operator() ()
 	link_total(t) = log(mu_total(t));
   }
   
-  PARAMETER_VECTOR(eps_index);
+  
+  // --- Bias correction "epsilon trick" ---
+  PARAMETER_VECTOR(eps_index); // length 0 normally; length n_t for bias correction
   
   if (eps_index.size() > 0) {
     Type S;
     for (int t=0; t < n_t; t++) {
       S = mu_total(t);
-      //S = newton::Tag(S); // Set lowrank tag on S = sum(exp(x))
       nll_penalty += eps_index(t) * S;
     }
   }

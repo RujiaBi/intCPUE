@@ -1,13 +1,15 @@
 Package: intCPUE
 Type: Package
-Title: Integrated TMB-Based Framework for CPUE Standardization
+Title: Integrated Spatiotemporal CPUE Standardization via TMB
 Version: 0.1.0
 Date: 2026-02-06
 Authors@R: 
     person("Rujia", "Bi", , "rbi@iattc.org", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-1954-6797"))
-Description: The intCPUE provides an integrated, TMB-based framework for CPUE standardization that 
-    jointly analyzes multiple fisheries or survey datasets and explicitly accounts for preferential sampling.
+Description: Provides an integrated framework for catch-per-unit-effort (CPUE)
+    standardization using Template Model Builder (TMB). The model supports
+    joint analysis of multiple fisheries or surveys, spatiotemporal random
+    fields via SPDE, and optional correction for preferential sampling.
 License: GPL-3
 Notice: inst/NOTICE
 Depends:

@@ -42,35 +42,6 @@ intCPUE <- function(
     ncores = NULL,
     ...,
     silent = FALSE
-)
-#'
-#' @param formula A model formula with optional mgcv::s() smooth terms.
-#' @param data_utm A data.frame with required columns.
-#' @param mesh An `intCPUEmesh` or a bare fmesher mesh.
-#' @param vessel_effect "on" or "off". If "off", vessel RE is fixed at 0 via map.
-#' @param q_diffs_system "on" or "off". If "off", flag systematic differences are fixed.
-#' @param q_diffs_time "on" or "off". If "off", flag-specific temporal effects are fixed.
-#' @param q_diffs_spatial "on" or "off". If "off", flag-specific spatial fields are fixed.
-#' @param control Control list passed to [stats::nlminb()].
-#' @param ncores Optional integer. If provided, sets the number of OpenMP threads. Passed to [TMB::openmp()].
-#' @param silent Logical. Passed to [TMB::MakeADFun()].
-#' @param ... Passed to [intCPUE::make_data()] (e.g., utm_zone, coord_scale, area_scale).
-#'
-#' @return An object of class `intCPUE` with elements `obj`, `opt`, `rep`, `prep`, etc.
-#' @author Rujia Bi \email{rbi@@iattc.org}
-#' @export
-intCPUE <- function(
-    formula,
-    data_utm,
-    mesh,
-    vessel_effect = c("on", "off"),
-    q_diffs_system = c("on", "off"),
-    q_diffs_time = c("on", "off"),
-    q_diffs_spatial = c("on", "off"),
-    control = list(eval.max = 1e5, iter.max = 1e5),
-    ncores = NULL,
-    ...,
-    silent = FALSE
 ) {
   vessel_effect   <- match.arg(vessel_effect)
   q_diffs_system  <- match.arg(q_diffs_system)

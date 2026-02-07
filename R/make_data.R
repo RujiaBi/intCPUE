@@ -111,20 +111,6 @@ make_data <- function(
         }
       }
     }
-    
-    # NA handling: rows with any NA in smooth covariates -> 0 effect
-    # If the parse_smoothers already did this, this is harmless.
-    if (!is.null(sm$na_rows) && length(sm$na_rows)) {
-      na_rows <- sm$na_rows
-      if (length(na_rows)) {
-        if (ncol(Xs) > 0) Xs[na_rows, ] <- 0
-        if (length(Zs)) {
-          for (k in seq_along(Zs)) {
-            Zs[[k]][na_rows, ] <- 0
-          }
-        }
-      }
-    }
   }
   
   # ---- user-supplied 0-based indices: validate only ----

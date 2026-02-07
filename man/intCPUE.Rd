@@ -2,11 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{intCPUE}
 \alias{intCPUE}
-\title{Fits a spatiotemporal generalized linear mixed-effects model (GLMM)
-using the TMB (Template Model Builder) R package. Spatial and spatiotemporal
-random fields are approximated using the SPDE (stochastic partial differential
-equation) approach, allowing efficient modeling of data that are correlated
-in space and/or time.}
+\title{Fit an integrated spatiotemporal CPUE standardization model}
 \usage{
 intCPUE(
   formula,
@@ -47,13 +43,22 @@ intCPUE(
 }
 \value{
 An object of class \code{intCPUE} with elements \code{obj}, \code{opt}, \code{rep}, \code{prep}, etc.
+
+An object of class \code{intCPUE} with elements \code{obj}, \code{opt}, \code{rep}, \code{prep}, etc.
 }
 \description{
-Fits a spatiotemporal generalized linear mixed-effects model (GLMM)
-using the TMB (Template Model Builder) R package. Spatial and spatiotemporal
-random fields are approximated using the SPDE (stochastic partial differential
-equation) approach, allowing efficient modeling of data that are correlated
-in space and/or time.
+Fits an integrated spatiotemporal model for CPUE standardization that jointly
+models observation and sampling processes across one or more fisheries or surveys.
+The framework is designed to reduce bias caused by preferential sampling,
+targeting behavior, and heterogeneous effort distributions, and to estimate
+a coherent latent abundance index.
+}
+\details{
+The model is implemented using Template Model Builder (TMB). Spatial and
+spatiotemporal random fields are represented using the SPDE (stochastic partial
+differential equation) approach for computational efficiency. See the model
+description vignette for details:
+https://github.com/RujiaBi/intCPUE/blob/main/vignettes/intCPUE-intro.Rmd
 }
 \author{
 Rujia Bi \email{rbi@iattc.org}

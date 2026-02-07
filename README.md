@@ -1,31 +1,27 @@
-intCPUE
-================
 
-- [Overview](#overview)
-- [Contact](#contact)
-- [Citation](#citation)
-- [Installation (development
-  version)](#installation-development-version)
-- [Data structure](#data-structure)
-  - [Important](#important)
-- [Coordinate projection (lon/lat →
-  UTM)](#coordinate-projection-lonlat--utm)
-- [Build spatial mesh](#build-spatial-mesh)
-  - [K-means mesh](#k-means-mesh)
-  - [Cutoff mesh](#cutoff-mesh)
-  - [Tailor mesh](#tailor-mesh)
-  - [Custom mesh](#custom-mesh)
-- [Fit the model](#fit-the-model)
-  - [Catchability components](#catchability-components)
-- [Getting indices with bias
-  correction](#getting-indices-with-bias-correction)
-- [Next steps](#next-steps)
+<!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# Overview
+# intCPUE <img src="man/figures/logo.png" align="right" height="138" alt="intCPUE logo" />
 
 **intCPUE** is a TMB-based framework for integrated CPUE standardization
 across multiple fisheries or surveys, with optional preferential
 sampling correction (under development).
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Contact](#contact)
+- [Citation](#citation)
+- [Installation](#installation)
+- [Data structure](#data-structure)
+- [Coordinate projection](#coordinate-projection)
+- [Build spatial mesh](#build-spatial-mesh)
+- [Fit the model](#fit-the-model)
+- [Getting index with bias
+  correction](#getting-index-with-bias-correction)
+- [Next steps](#next-steps)
+
+## Overview
 
 The model supports:
 
@@ -39,13 +35,13 @@ The model supports:
 Here provides a minimal workflow: install → data preparation →
 projection → mesh → model fitting → index extraction
 
-# Contact
+## Contact
 
 For questions, suggestions, or collaboration, please contact:
 
 - **Rujia Bi** — <rbi@iattc.org>
 
-# Citation
+## Citation
 
 If you use **intCPUE** in your work, please cite it as software:
 
@@ -54,7 +50,7 @@ If you use **intCPUE** in your work, please cite it as software:
 
 Once a paper or DOI is available, this section will be updated.
 
-# Installation (development version)
+## Installation (development version)
 
 ``` r
 # install.packages("remotes")
@@ -65,7 +61,7 @@ remotes::install_github("RujiaBi/intCPUE")
 library(intCPUE)
 ```
 
-# Data structure
+## Data structure
 
 An intCPUE model requires a data frame that containing:
 
@@ -95,13 +91,13 @@ data_input <- data.frame(
 )
 ```
 
-## Important
+### Important
 
 - `vesid`, `tid` and `flagid` must be 0-based contiguous integers
 
 - `flagid` must use 0 as the reference fishery / survey
 
-# Coordinate projection (lon/lat → UTM)
+## Coordinate projection (lon/lat → UTM)
 
 Longitude may be in either -180..180 or 0..360.
 
@@ -118,12 +114,12 @@ utm <- make_utm(data_input, utm_zone = NULL, coord_scale = "auto")
 data_utm <- utm$data_utm
 ```
 
-# Build spatial mesh
+## Build spatial mesh
 
 The mesh must be constructed using the scaled projected coordinates:
 `utm_x_scale` and `utm_y_scale`
 
-## K-means mesh
+### K-means mesh
 
 ``` r
 # Add `intCPUE::` to avoid confusion with `sdmTMB::make_mesh`
@@ -132,14 +128,14 @@ mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), 
 plot(mesh)
 ```
 
-## Cutoff mesh
+### Cutoff mesh
 
 ``` r
 mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 plot(mesh)
 ```
 
-## Tailor mesh
+### Tailor mesh
 
 ``` r
 mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
@@ -150,7 +146,7 @@ mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), 
 plot(mesh)
 ```
 
-## Custom mesh
+### Custom mesh
 
 ``` r
 bnd <- INLA::inla.nonconvex.hull(cbind(data_utm$utm_x_scale, data_utm$utm_y_scale), convex = -0.1)
@@ -162,7 +158,7 @@ mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), 
 plot(mesh)
 ```
 
-# Fit the model
+## Fit the model
 
 ``` r
 formula_1 <- "cpue ~ 1"
@@ -186,7 +182,7 @@ fit <- intCPUE(
   formula_2,
   data = data_utm,
   mesh = mesh,
-  vessel_effect = "off", 
+  vessel_effect = "off",  # "on" or "off", same in the following
   q_diffs_system = "off",  
   q_diffs_time = "off",  
   q_diffs_spatial = "off", 
@@ -194,7 +190,7 @@ fit <- intCPUE(
 )
 ```
 
-## Catchability components
+### Catchability components
 
 - `q_diffs_system` — systematic catchability difference among fisheries
   (i.e., factor effect)
@@ -205,7 +201,7 @@ fit <- intCPUE(
 
 For the reference fishery (`flagid = 0`), these are constrained to 0.
 
-# Getting indices with bias correction
+## Getting index with bias correction
 
 ``` r
 index <- intCPUE::get_index(fit)
@@ -216,7 +212,7 @@ ggplot(index, aes(time, index)) +
   labs(x = "Time", y = "Biomass")
 ```
 
-# Next steps
+## Next steps
 
 - plot functions
 

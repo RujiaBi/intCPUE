@@ -84,7 +84,7 @@ An intCPUE model requires a data frame that containing:
 - `flagid` — fishery / survey ID (0-based; 0 = reference fishery)
 
 ``` r
-# Borrow `pcod` from `sdmTMB`
+# Use `pcod` from `sdmTMB` as an example
 data_input <- data.frame(
   "cpue" = pcod$density,
   "encounter" = pcod$present,
@@ -128,23 +128,21 @@ The mesh must be constructed using the scaled projected coordinates:
 ### K-means mesh
 
 ``` r
-# Add `intCPUE::` to avoid confusion with `sdmTMB::make_mesh`
-# Will improve when own example data available
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "kmeans", n_knots = 50)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "kmeans", n_knots = 50)
 plot(mesh)
 ```
 
 ### Cutoff mesh
 
 ``` r
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 plot(mesh)
 ```
 
 ### Tailor mesh
 
 ``` r
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
     convex = -0.1,         # for a finer boundary
     max.edge = c(0.5, 2),   # max triangle edge length; inner and outer meshes
     offset = c(0.1, 0.5),  # inner and outer border widths
@@ -160,7 +158,7 @@ mesh_inla <- INLA::inla.mesh.2d(
   boundary = bnd,
   max.edge = c(0.5, 2)
 )
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), mesh = mesh_inla)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), mesh = mesh_inla)
 plot(mesh)
 ```
 
@@ -183,7 +181,7 @@ Both encounter and positive components include:
 
 ``` r
 ncores <- 4
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 fit <- intCPUE(
   formula_2,
   data = data_utm,
@@ -210,7 +208,7 @@ For the reference fishery (`flagid = 0`), these are constrained to 0.
 ## Getting index with bias correction
 
 ``` r
-index <- intCPUE::get_index(fit)
+index <- get_index(fit)
 library(ggplot2)
 ggplot(index, aes(time, index)) +
   geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey90") +

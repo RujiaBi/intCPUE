@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# intCPUE <img src="man/figures/logo.png" align="right" height="138" alt="intCPUE logo" />
+# intCPUE <img src="man/figures/logo.png" align="right" height="168" alt="intCPUE logo" />
 
 **intCPUE** is a TMB-based framework for integrated CPUE standardization
 across multiple fisheries or surveys, with optional preferential

@@ -32,8 +32,14 @@ The model supports:
 - mgcv-style `s()` smooth terms parsed into mixed-effects from inside
   TMB
 
+This is currently a Poisson-link delta model. At present, population
+density is affected only by temporal effects, spatial effects, and
+spatiotemporal effects. Smooth terms are not yet allowed to affect
+population density; they currently affect catchability only. More
+flexible model specifications will be added in future releases.
+
 Here provides a minimal workflow: install → data preparation →
-projection → mesh → model fitting → index extraction
+coordinate projection → mesh → model fitting → index extraction
 
 ## Contact
 
@@ -214,7 +220,9 @@ ggplot(index, aes(time, index)) +
 
 ## Next steps
 
-- plot functions
+- more flexible settings on smooth terms
+
+- diagnostic and plotting functions
 
 - preferential sampling correction
 

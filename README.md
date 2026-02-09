@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# intCPUE <img src="man/figures/logo.png" align="right" height="178" alt="intCPUE logo" />
+# intCPUE <img src="man/figures/logo.png" align="right" height="136" alt="intCPUE logo" />
 
 > Integrated CPUE standardization with spatiotemporal models in TMB
 

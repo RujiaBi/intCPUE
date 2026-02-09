@@ -39,7 +39,7 @@ population density; they currently affect catchability only. More
 flexible model specifications will be added in future releases.
 
 Here provides a minimal workflow: install → data preparation →
-coordinate projection → mesh → model fitting → index extraction
+coordinate projection → mesh → model fitting → index extraction.
 
 ## Contact
 
@@ -69,11 +69,11 @@ library(intCPUE)
 
 ## Data structure
 
-An intCPUE model requires a data frame that containing:
+An intCPUE model requires a data frame containing the following columns:
 
 - `cpue` — positive catch rate
 
-- `encounter` — encounter indicator / effort component
+- `encounter` — encounter indicator (0 = zero catch, 1 = positive catch)
 
 - `lon`, `lat` — geographic coordinates
 
@@ -82,6 +82,9 @@ An intCPUE model requires a data frame that containing:
 - `tid` — time index (0-based)
 
 - `flagid` — fishery / survey ID (0-based; 0 = reference fishery)
+
+These columns are required. Additional columns may be included as
+needed.
 
 ``` r
 # Use `pcod` from `sdmTMB` as an example

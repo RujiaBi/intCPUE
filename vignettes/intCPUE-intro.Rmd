@@ -34,8 +34,9 @@ The model supports:
 
 - mgcv-style `s()` smooth terms parsed into mixed-effects from inside TMB
 
-This vignette provides a minimal workflow:
-    install → data preparation → projection → mesh → model fitting → index extraction
+This is currently a Poisson-link delta model. At present, population density is affected only by temporal effects, spatial effects, and spatiotemporal effects. Smooth terms are not yet allowed to affect population density; they currently affect catchability only. More flexible model specifications will be added in future releases.
+
+Here provides a minimal workflow: install → data preparation → coordinate projection → mesh → model fitting → index extraction.
 
 # Installation (development version)
 
@@ -50,11 +51,11 @@ library(intCPUE)
 
 # Data structure
 
-An intCPUE model requires a data frame that containing:
+An intCPUE model requires a data frame containing the following columns:
 
 * `cpue` — positive catch rate  
 
-* `encounter` — encounter indicator / effort component  
+* `encounter` — encounter indicator (0 = zero catch, 1 = positive catch)  
 
 * `lon`, `lat` — geographic coordinates  
 
@@ -64,8 +65,10 @@ An intCPUE model requires a data frame that containing:
 
 * `flagid` — fishery / survey ID (0-based; 0 = reference fishery)
 
+These columns are required. Additional columns may be included as needed.
+
 ```r
-# Borrow `pcod` from `sdmTMB`
+# Use `pcod` from `sdmTMB` as an example
 data_input <- data.frame(
   "cpue" = pcod$density,
   "encounter" = pcod$present,
@@ -109,21 +112,19 @@ The mesh must be constructed using the scaled projected coordinates:
 ## K-means mesh
 
 ```r
-# Add `intCPUE::` to avoid confusion with `sdmTMB::make_mesh`
-# Will improve when own example data available
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "kmeans", n_knots = 50)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "kmeans", n_knots = 50)
 plot(mesh)
 ```
 
 ## Cutoff mesh
 ```r
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 plot(mesh)
 ```
 
 ## Tailor mesh
 ```r
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
     convex = -0.1,         # for a finer boundary
     max.edge = c(0.5, 2),   # max triangle edge length; inner and outer meshes
     offset = c(0.1, 0.5),  # inner and outer border widths
@@ -138,7 +139,7 @@ mesh_inla <- INLA::inla.mesh.2d(
   boundary = bnd,
   max.edge = c(0.5, 2)
 )
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), mesh = mesh_inla)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), mesh = mesh_inla)
 plot(mesh)
 ```
 
@@ -160,12 +161,12 @@ Both encounter and positive components include:
 
 ```r
 ncores <- 4
-mesh <- intCPUE::make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
+mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
 fit <- intCPUE(
   formula_2,
   data = data_utm,
   mesh = mesh,
-  vessel_effect = "off", 
+  vessel_effect = "off",  # "on" or "off", same in the following
   q_diffs_system = "off",  
   q_diffs_time = "off",  
   q_diffs_spatial = "off", 
@@ -186,7 +187,7 @@ For the reference fishery (`flagid = 0`), these are constrained to 0.
 # Getting indices with bias correction
 
 ```r
-indices <- intCPUE::get_index(fit)
+indices <- get_index(fit)
 library(ggplot2)
 ggplot(indices, aes(time, index)) +
   geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey90") +
@@ -196,7 +197,9 @@ ggplot(indices, aes(time, index)) +
 
 # Next steps
 
-- plot functions
+- more flexible settings on smooth terms
+
+- diagnostic and plotting functions
 
 - preferential sampling correction
 

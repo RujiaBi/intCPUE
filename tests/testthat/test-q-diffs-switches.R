@@ -110,6 +110,43 @@ test_that("observation-SD mapping is honored", {
   expect_null(shared_map[["ln_sd", exact = TRUE]])
 })
 
+test_that("RW maps out unused AR1 correlation parameters", {
+  parameters <- intCPUE:::.make_parameters_intCPUE(
+    n_t = 3L,
+    n_v = 1L,
+    n_f = 2L,
+    n_s = 4L,
+    K_smooth_catch = 0L,
+    n_smooth_catch = 0L,
+    sum_k_catch = 0L,
+    K_smooth_pop = 0L,
+    n_smooth_pop = 0L,
+    sum_k_pop = 0L
+  )
+
+  rw_map <- intCPUE:::.make_map_intCPUE(
+    parameters = parameters,
+    n_f = 2L,
+    q_diffs_time = "off",
+    obs_sd = "shared",
+    pop_spatiotemporal_type = "rw"
+  )
+
+  expect_true(is.na(rw_map$transf_rho_1))
+  expect_true(is.na(rw_map$transf_rho_2))
+
+  ar1_map <- intCPUE:::.make_map_intCPUE(
+    parameters = parameters,
+    n_f = 2L,
+    q_diffs_time = "off",
+    obs_sd = "shared",
+    pop_spatiotemporal_type = "ar1"
+  )
+
+  expect_null(ar1_map[["transf_rho_1", exact = TRUE]])
+  expect_null(ar1_map[["transf_rho_2", exact = TRUE]])
+})
+
 test_that("observation-SD and AR1 spatiotemporal settings are reported by TMB", {
   skip_if_not_installed("sf")
   skip_if_not_installed("fmesher")

@@ -49,11 +49,13 @@
 
 .make_map_intCPUE <- function(parameters, n_f,
                               obs_sd = c("shared","flag"),
+                              pop_spatiotemporal_type = c("rw", "ar1"),
                               q_diffs_time = c("on","off"),
                               has_tf = NULL,
                               estimable_flag = NULL) {
   q_diffs_time <- match.arg(q_diffs_time)
   obs_sd <- match.arg(obs_sd)
+  pop_spatiotemporal_type <- match.arg(pop_spatiotemporal_type)
   
   map <- list()
   has_param <- function(name) !is.null(parameters[[name]])
@@ -74,6 +76,12 @@
   # Fixed core architecture:
   # spatial + spatiotemporal + vessel + q_diffs_system are always on.
   # q_diffs_time / q_diffs_spatial are handled by separate TMB templates, not map.
+  # The AR1 correlation parameters are only active for the AR1 branch; under RW
+  # they must be fixed at the neutral working-scale value to avoid singular Hessians.
+  if (pop_spatiotemporal_type == "rw") {
+    if (has_param("transf_rho_1")) map$transf_rho_1 <- factor(NA)
+    if (has_param("transf_rho_2")) map$transf_rho_2 <- factor(NA)
+  }
 
   if (has_param("flag_t_ln_std_dev_1")) {
     if (q_diffs_time == "off" || n_f <= 1L) {

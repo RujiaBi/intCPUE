@@ -174,6 +174,7 @@ intCPUE <- function(
     parameters = parameters,
     n_f = n_f,
     obs_sd = obs_sd,
+    pop_spatiotemporal_type = pop_spatiotemporal_type,
     q_diffs_time = q_diffs_time,
     has_tf = has_tf,
     estimable_flag = if (is.null(flag_t_constraint)) NULL else flag_t_constraint$estimable_flag

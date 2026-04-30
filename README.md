@@ -452,12 +452,23 @@ on the extrapolation grid:
   across `tid`.
 
 - Optional `region` can be supplied in `data_utm` (for example via
-  `data_input` before `make_utm()`). Each extrapolation grid cell must
-  belong to exactly one region. `get_index(..., regions = "all")`
-  returns region-specific indices plus the total index, with joint bias
-  correction.
+  `data_input` before `make_utm()`). If no `region` column is supplied,
+  `get_index()` returns only the total index over the full extrapolation
+  grid. If `region` is supplied, each extrapolation grid cell must
+  belong to exactly one region, and `get_index(..., regions = "all")`
+  returns each region-specific index plus the total index.
+  Region-specific indices and the total index are handled as one joint
+  index vector for bias correction.
 
 `tid` must use the same 0-based coding as `data_utm$tid`.
+
+Region example:
+
+``` r
+data_input$region <- combined_data$region
+utm <- make_utm(data_input, utm_zone = NULL, hemisphere = "auto", coord_scale = "auto")
+data_utm <- utm$data_utm
+```
 
 ``` r
 ncores <- 4
@@ -478,6 +489,16 @@ fit <- intCPUE(
   obs_sd = "shared",
   ncores = ncores
 )
+```
+
+After fitting:
+
+``` r
+# Without a region request, this returns the total index.
+index_total <- get_index(fit)
+
+# With regions = "all", this returns region-specific indices plus total.
+index_region <- get_index(fit, regions = "all")
 ```
 
 ### Core model components

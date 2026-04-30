@@ -300,17 +300,29 @@ extrapolation grid.
 - If static and time-varying covariates are mixed, use the grid cell-time format
   and repeat static values across `tid`.
 
-Optional `region` can be supplied in `data_input` before `make_utm()`. Then each
-extrapolation grid cell is assigned to one region. `get_index(...,
-regions = "all")` returns region-specific indices plus the total index with
-joint bias correction.
+Optional `region` can be supplied in `data_input` before `make_utm()`. If no
+`region` column is supplied, `get_index()` returns only the total index over the
+full extrapolation grid. If `region` is supplied, each extrapolation grid cell is
+assigned to exactly one region, and `get_index(..., regions = "all")` returns
+each region-specific index plus the total index. Region-specific indices and the
+total index are handled as one joint index vector for bias correction.
+
+```r
+data_input$region <- combined_data$region
+utm <- make_utm(data_input, utm_zone = NULL, hemisphere = "auto", coord_scale = "auto")
+data_utm <- utm$data_utm
+```
 
 # Extract indices and diagnostics
 
 ```r
-index <- get_index(fit)
-index_by_region <- get_index(fit, regions = "all")
-plot_index(index)
+# Without a region request, this returns the total index.
+index_total <- get_index(fit)
+
+# With regions = "all", this returns region-specific indices plus total.
+index_region <- get_index(fit, regions = "all")
+
+plot_index(index_total)
 
 check_convergence(fit)
 calc_marginal_aic(fit)

@@ -130,7 +130,7 @@ plot_index <- function(
 
   if ("region" %in% names(index_df)) {
     p <- p +
-      ggplot2::facet_grid(region ~ panel, scales = "free_y", switch = "y") +
+      ggplot2::facet_grid(panel ~ region, scales = "free_y", switch = "y") +
       ggplot2::theme(
         strip.text.y.left = ggplot2::element_text(angle = 0, face = "bold"),
         strip.background.y = ggplot2::element_rect(fill = "grey98", colour = "grey80")

@@ -4,11 +4,12 @@
 #' coefficient of variation (CV) over time.
 #'
 #' @param index_df A data.frame returned by [get_index()] containing at least
-#'   `time`, `index`, and `cv`.
+#'   `time`, `index`, and `cv`. If it also contains `region`, each region is
+#'   plotted separately.
 #' @param time_values Optional vector of labels for the x-axis. Must have the
-#'   same length as the number of rows in `index_df`.
+#'   same length as the number of unique time values in `index_df`.
 #' @param time_positions Optional numeric vector of x-axis positions. Must have
-#'   the same length as the number of rows in `index_df`.
+#'   the same length as the number of unique time values in `index_df`.
 #' @param x_text_angle Optional numeric angle for x-axis text. If `NULL`,
 #'   `plot_index()` uses `90` for year-month-like labels and `45` otherwise.
 #' @param x_text_hjust Optional horizontal justification for x-axis text. If
@@ -36,32 +37,41 @@ plot_index <- function(
     )
   }
 
-  if (!is.null(time_values) && length(time_values) != nrow(index_df)) {
+  time_levels <- sort(unique(index_df$time))
+  n_time <- length(time_levels)
+  if (!is.null(time_values) && length(time_values) != n_time) {
     stop(
-      "`time_values` must have the same length as `nrow(index_df)`.",
+      "`time_values` must have the same length as the number of unique `time` values.",
       call. = FALSE
     )
   }
 
   if (!is.null(time_positions)) {
-    if (!is.numeric(time_positions) || length(time_positions) != nrow(index_df)) {
+    if (!is.numeric(time_positions) || length(time_positions) != n_time) {
       stop(
-        "`time_positions` must be a numeric vector with the same length as `nrow(index_df)`.",
+        "`time_positions` must be a numeric vector with the same length as the number of unique `time` values.",
         call. = FALSE
       )
     }
   }
 
-  time_seq <- if (is.null(time_positions)) seq_len(nrow(index_df)) else time_positions
+  time_map <- stats::setNames(
+    if (is.null(time_positions)) seq_len(n_time) else time_positions,
+    as.character(time_levels)
+  )
+  time_seq <- unname(time_map[as.character(index_df$time)])
+  region <- if ("region" %in% names(index_df)) as.character(index_df$region) else "total"
 
   plot_dat <- rbind(
     data.frame(
       time = time_seq,
+      region = region,
       value = index_df$index,
       panel = "Standardized CPUE"
     ),
     data.frame(
       time = time_seq,
+      region = region,
       value = index_df$cv,
       panel = "CV"
     )
@@ -72,7 +82,9 @@ plot_index <- function(
     levels = c("Standardized CPUE", "CV")
   )
 
-  p <- ggplot2::ggplot(plot_dat, ggplot2::aes(x = time, y = value)) +
+  plot_dat$region <- factor(plot_dat$region, levels = unique(region))
+
+  p <- ggplot2::ggplot(plot_dat, ggplot2::aes(x = time, y = value, group = region)) +
     ggplot2::geom_line(
       data = subset(plot_dat, panel == "Standardized CPUE"),
       colour = "#0F766E",
@@ -101,7 +113,6 @@ plot_index <- function(
       stroke = 0.7,
       size = 1.9
     ) +
-    ggplot2::facet_wrap(~ panel, ncol = 1, scales = "free_y", strip.position = "top") +
     ggplot2::labs(x = "Time", y = NULL) +
     ggplot2::theme_bw(base_size = 13) +
     ggplot2::theme(
@@ -117,8 +128,21 @@ plot_index <- function(
       axis.text.y = ggplot2::element_text(colour = "grey20")
     )
 
+  if ("region" %in% names(index_df)) {
+    p <- p +
+      ggplot2::facet_grid(region ~ panel, scales = "free_y", switch = "y") +
+      ggplot2::theme(
+        strip.text.y.left = ggplot2::element_text(angle = 0, face = "bold"),
+        strip.background.y = ggplot2::element_rect(fill = "grey98", colour = "grey80")
+      )
+  } else {
+    p <- p +
+      ggplot2::facet_wrap(~ panel, ncol = 1, scales = "free_y", strip.position = "top")
+  }
+
   if (!is.null(time_values) || !is.null(time_positions)) {
-    x_labels <- if (is.null(time_values)) time_seq else time_values
+    x_breaks <- unname(time_map)
+    x_labels <- if (is.null(time_values)) time_levels else time_values
     x_labels_chr <- as.character(x_labels)
     has_month_labels <- any(grepl("-", x_labels_chr, fixed = TRUE))
 
@@ -136,7 +160,7 @@ plot_index <- function(
 
     p <- p +
       ggplot2::scale_x_continuous(
-        breaks = time_seq,
+        breaks = x_breaks,
         labels = x_labels
       ) +
       ggplot2::labs(x = if (has_month_labels) "Year-Month" else "Year") +

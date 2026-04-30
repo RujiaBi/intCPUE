@@ -8,7 +8,8 @@ get_index(
   object,
   level = 0.95,
   inner.control = list(sparse = TRUE, lowrank = TRUE, trace = FALSE),
-  silent = TRUE
+  silent = TRUE,
+  regions = c("total", "all")
 )
 }
 \arguments{
@@ -20,6 +21,10 @@ get_index(
 Default uses sparse + lowrank for memory efficiency.}
 
 \item{silent}{Logical; passed to TMB::MakeADFun() for the bias-correction step.}
+
+\item{regions}{\code{"total"} returns only the total-region index, preserving the
+historical output shape. \code{"all"} returns region-specific indices plus the
+total index. Bias correction is done jointly either way.}
 }
 \value{
 A data.frame with columns:

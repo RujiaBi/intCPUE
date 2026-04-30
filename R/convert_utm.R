@@ -7,6 +7,9 @@
 #'
 #' @param data_input data.frame with columns lon, lat (and others you need)
 #' @param utm_zone integer in 1--60; if NULL, auto-selected
+#' @param hemisphere `"auto"`, `"north"`, or `"south"`. `"auto"` chooses the
+#'   UTM hemisphere from the majority of observation latitudes; `"north"` uses
+#'   EPSG:326xx and `"south"` uses EPSG:327xx.
 #' @param coord_scale positive numeric or "auto"
 #' @param lon_convention "auto", "-180_180", or "0_360"
 #'   - "auto": detect and internally standardize lon for projection/zone pick
@@ -20,11 +23,13 @@
 make_utm <- function(
     data_input,
     utm_zone = NULL,
+    hemisphere = c("auto", "north", "south"),
     coord_scale = "auto",
     lon_convention = c("auto", "-180_180", "0_360"),
     quiet = TRUE
 ) {
   data_input <- as.data.frame(data_input)
+  hemisphere <- match.arg(hemisphere)
   lon_convention <- match.arg(lon_convention)
   
   .check_required_cols(data_input, c("lon", "lat"))
@@ -37,6 +42,7 @@ make_utm <- function(
   out <- .prep_utm_scaled(
     data_input = data_input,
     utm_zone = utm_zone,
+    hemisphere = hemisphere,
     coord_scale = coord_scale,
     lon_convention = lon_convention,
     quiet = quiet
@@ -49,10 +55,12 @@ make_utm <- function(
 .prep_utm_scaled <- function(
     data_input,
     utm_zone = NULL,
+    hemisphere = c("auto", "north", "south"),
     coord_scale = "auto",
     lon_convention = c("auto", "-180_180", "0_360"),
     quiet = TRUE
 ) {
+  hemisphere <- match.arg(hemisphere)
   lon_convention <- match.arg(lon_convention)
   
   # 1) normalize lon based on declared convention (or auto)
@@ -104,13 +112,20 @@ make_utm <- function(
   }
   
   # 4) hemisphere -> EPSG
-  n_north <- sum(lat_in >= 0)
-  n_south <- sum(lat_in < 0)
-  epsg_base <- if (n_north >= n_south) 32600L else 32700L
+  epsg_base <- switch(
+    hemisphere,
+    north = 32600L,
+    south = 32700L,
+    auto = {
+      n_north <- sum(lat_in >= 0)
+      n_south <- sum(lat_in < 0)
+      if (n_north >= n_south) 32600L else 32700L
+    }
+  )
   utm_epsg <- epsg_base + utm_zone
   
   if (!quiet) {
-    message(sprintf("Using UTM zone %d (EPSG:%d).", utm_zone, utm_epsg))
+    message(sprintf("Using UTM zone %d, hemisphere '%s' (EPSG:%d).", utm_zone, hemisphere, utm_epsg))
   }
   
   # 4) project with sf
@@ -152,7 +167,8 @@ make_utm <- function(
     data_utm = data_utm,
     utm_scale = utm_scale,
     utm_epsg = utm_epsg,
-    utm_zone = utm_zone
+    utm_zone = utm_zone,
+    hemisphere = hemisphere
   )
 }
 

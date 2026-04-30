@@ -9,15 +9,41 @@
   n_v,
   n_f,
   n_s,
-  n_flag_t_free = 0L,
+  data_type = c("delta", "positive", "mixed"),
+  n_v_component1 = n_v,
+  n_f_component1 = max(0L, n_f - 1L),
+  n_flag_t_free_1 = 0L,
+  n_flag_t_free_2 = 0L,
+  n_flag_t_free = NULL,
+  pop_spatial_on = TRUE,
+  pop_spatiotemporal_on = TRUE,
   use_q_diffs_time = TRUE,
-  use_q_diffs_spatial = TRUE,
+  q_diffs_spatial_on = TRUE,
   K_smooth_catch = 0L,
   n_smooth_catch = 0L,
   sum_k_catch = 0L,
   K_smooth_pop = 0L,
   n_smooth_pop = 0L,
   sum_k_pop = 0L,
+  K_factor_catch = 0L,
+  n_factor_random_catch = 0L,
+  sum_k_factor_catch = 0L,
+  K_factor_pop = 0L,
+  n_factor_random_pop = 0L,
+  sum_k_factor_pop = 0L,
+  split_component1_design = FALSE,
+  K_smooth_catch_1 = 0L,
+  n_smooth_catch_1 = 0L,
+  sum_k_catch_1 = 0L,
+  K_factor_catch_1 = 0L,
+  n_factor_random_catch_1 = 0L,
+  sum_k_factor_catch_1 = 0L,
+  K_smooth_pop_1 = 0L,
+  n_smooth_pop_1 = 0L,
+  sum_k_pop_1 = 0L,
+  K_factor_pop_1 = 0L,
+  n_factor_random_pop_1 = 0L,
+  sum_k_factor_pop_1 = 0L,
   K_smooth = NULL,
   n_smooth = NULL,
   sum_k = NULL
@@ -26,11 +52,14 @@
 \arguments{
 \item{n_t}{Number of time steps (e.g., years/quarters) after 0-based recoding.}
 
-\item{n_v}{Number of vessels (or vessel IDs) after recoding.}
-
 \item{n_f}{Number of flags after recoding (including baseline flag = level 0).}
 
 \item{n_s}{Number of SPDE vertices (mesh nodes).}
+
+\item{pop_spatial_on}{Logical; include the omega spatial population field.}
+
+\item{pop_spatiotemporal_on}{Logical; include the epsilon spatiotemporal
+population field.}
 
 \item{K_smooth_catch}{Number of fixed-effect columns from catchability smooths.}
 
@@ -43,6 +72,18 @@
 \item{n_smooth_pop}{Number of population smooth terms (length of Zs list).}
 
 \item{sum_k_pop}{Total number of penalized coefficients across population smooths.}
+
+\item{K_factor_catch}{Number of fixed-effect columns from catchability factor terms.}
+
+\item{n_factor_random_catch}{Number of catchability random-factor terms.}
+
+\item{sum_k_factor_catch}{Total number of random-factor coefficients for catchability.}
+
+\item{K_factor_pop}{Number of fixed-effect columns from population factor terms.}
+
+\item{n_factor_random_pop}{Number of population random-factor terms.}
+
+\item{sum_k_factor_pop}{Total number of random-factor coefficients for population.}
 
 \item{K_smooth}{Legacy alias for \code{K_smooth_catch}.}
 
@@ -66,8 +107,8 @@ Notes for developers:
 \itemize{
 \item If add/remove/rename a PARAMETER() or change a parameter dimension in C++,
 this function needs update accordingly.
-\item Any parameter that is "turned off" via \code{map} will be fixed at these initial
-values (usually 0 on the working scale), so choose defaults intentionally.
+\item Structural modules that are off should use length-0 vectors or 0x0
+matrices, rather than \code{map}, so they do not enter the AD graph.
 \item Matrices are stored in column-major order when passed to TMB; keep the same
 dimension convention as the C++ template expects.
 }

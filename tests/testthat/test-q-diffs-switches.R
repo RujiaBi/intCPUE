@@ -25,7 +25,7 @@ test_that("q-diff switches are honored in TMB when turned off", {
 
   fit <- suppressWarnings(
     intCPUE(
-      formula = cpue ~ 1,
+      formula_catchability = ~ 1,
       data_utm = data_utm,
       mesh = mesh,
       q_diffs_time = "off",
@@ -38,7 +38,7 @@ test_that("q-diff switches are honored in TMB when turned off", {
   rep <- fit$obj$report()
 
   expect_equal(as.integer(rep$use_q_diffs_time), 0L)
-  expect_equal(as.integer(rep$use_q_diffs_spatial), 0L)
+  expect_equal(as.integer(rep$q_diffs_spatial_enabled), 0L)
   expect_equal(as.integer(rep$use_pop_spatiotemporal_rw), 1L)
   expect_equal(as.integer(rep$use_pop_spatiotemporal_ar1), 0L)
   expect_s3_class(fit, "intCPUE")
@@ -92,6 +92,7 @@ test_that("observation-SD mapping is honored", {
   map <- intCPUE:::.make_map_intCPUE(
     parameters = parameters,
     n_f = 2L,
+    n_v = 1L,
     q_diffs_time = "off",
     obs_sd = "flag"
   )
@@ -102,6 +103,7 @@ test_that("observation-SD mapping is honored", {
   shared_map <- intCPUE:::.make_map_intCPUE(
     parameters = parameters,
     n_f = 2L,
+    n_v = 1L,
     q_diffs_time = "off",
     obs_sd = "shared"
   )
@@ -127,6 +129,7 @@ test_that("RW maps out unused AR1 correlation parameters", {
   rw_map <- intCPUE:::.make_map_intCPUE(
     parameters = parameters,
     n_f = 2L,
+    n_v = 1L,
     q_diffs_time = "off",
     obs_sd = "shared",
     pop_spatiotemporal_type = "rw"
@@ -138,6 +141,7 @@ test_that("RW maps out unused AR1 correlation parameters", {
   ar1_map <- intCPUE:::.make_map_intCPUE(
     parameters = parameters,
     n_f = 2L,
+    n_v = 1L,
     q_diffs_time = "off",
     obs_sd = "shared",
     pop_spatiotemporal_type = "ar1"
@@ -174,7 +178,7 @@ test_that("observation-SD and AR1 spatiotemporal settings are reported by TMB", 
 
   fit_flag_sd <- suppressWarnings(
     intCPUE(
-      formula = cpue ~ 1,
+      formula_catchability = ~ 1,
       data_utm = data_utm,
       mesh = mesh,
       obs_sd = "flag",
@@ -193,7 +197,7 @@ test_that("observation-SD and AR1 spatiotemporal settings are reported by TMB", 
 
   fit_ar1 <- suppressWarnings(
     intCPUE(
-      formula = cpue ~ 1,
+      formula_catchability = ~ 1,
       data_utm = data_utm,
       mesh = mesh,
       pop_spatiotemporal_type = "ar1",

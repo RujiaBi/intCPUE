@@ -5,15 +5,19 @@
 \title{Fit an integrated spatiotemporal CPUE standardization model}
 \usage{
 intCPUE(
-  formula = NULL,
   data_utm,
   mesh,
   formula_catchability = NULL,
   formula_population = NULL,
   projection_data = NULL,
+  data_type = c("auto", "delta", "positive", "mixed"),
+  delta_link = c("Poisson", "traditional"),
+  pop_spatial = c("on", "off"),
+  pop_spatiotemporal = c("on", "off"),
+  pop_spatiotemporal_type = c("rw", "ar1"),
+  q_diffs_system_type = c("random", "fixed"),
   q_diffs_time = c("on", "off"),
   q_diffs_spatial = c("on", "off"),
-  pop_spatiotemporal_type = c("rw", "ar1"),
   obs_sd = c("shared", "flag"),
   control = list(eval.max = 1e+05, iter.max = 1e+05),
   ncores = NULL,
@@ -25,20 +29,16 @@ intCPUE(
 )
 }
 \arguments{
-\item{formula}{Legacy one-sided or two-sided model formula with optional
-mgcv::s() smooth terms. If supplied, it is treated as
-\code{formula_catchability}.}
-
 \item{data_utm}{A data.frame with required columns.}
 
 \item{mesh}{An \code{intCPUEmesh} or a bare fmesher mesh.}
 
-\item{formula_catchability}{Optional one-sided or two-sided formula defining
-smooth terms that affect catchability only.}
+\item{formula_catchability}{Optional one-sided formula defining
+smooth and factor terms that affect catchability only.}
 
-\item{formula_population}{Optional one-sided or two-sided formula defining
-smooth terms that affect the latent population surface and therefore also
-enter projection.}
+\item{formula_population}{Optional one-sided formula defining
+smooth and factor terms that affect the latent population surface and
+therefore also enter projection.}
 
 \item{projection_data}{Optional projection-grid data for population smooth
 covariates. Passed to \code{\link[=make_data]{make_data()}}. For static population covariates,
@@ -49,17 +49,42 @@ one row per grid cell-time combination. If \code{formula_population} mixes
 static and time-varying covariates, use the grid cell-time format and
 repeat static covariate values across \code{tid}.}
 
-\item{q_diffs_time}{"on" or "off". Controls whether flag-specific temporal
-deviations are included. Implemented via dedicated TMB templates rather
-than \code{map}.}
+\item{data_type}{Observation-data structure. \code{"auto"} detects the structure
+by flag/type; \code{"delta"} requires every flag/type to have both zero and
+positive catches; \code{"positive"} requires all observations to be positive;
+\code{"mixed"} requires some delta flags and some positive-only flags. For
+mixed data, the reference flag (\code{flagid = 0}) must be a delta flag.}
 
-\item{q_diffs_spatial}{"on" or "off". Controls whether flag-specific spatial
-deviations are included. Implemented via dedicated TMB templates rather
-than \code{map}.}
+\item{delta_link}{\code{"Poisson"} or \code{"traditional"}. \code{"Poisson"} is only valid
+for pure \code{data_type = "delta"}. \code{"traditional"} is required for
+\code{data_type = "mixed"} and uses a logit encounter probability with a
+lognormal positive-CPUE component. For \code{data_type = "positive"},
+\code{delta_link} is ignored because only the positive lognormal component is
+fitted.}
+
+\item{pop_spatial}{\code{"on"} or \code{"off"}. Controls the time-constant spatial
+population field (\code{omega}). If \code{"off"}, the corresponding parameters have
+length 0 and the C++ template skips the module.}
+
+\item{pop_spatiotemporal}{\code{"on"} or \code{"off"}. Controls the spatiotemporal
+population field (\code{epsilon}). If \code{"off"}, the corresponding parameters
+have length 0 and the C++ template skips the module.}
 
 \item{pop_spatiotemporal_type}{\code{"rw"} or \code{"ar1"}. Controls whether the
-always-on spatiotemporal population field follows a random-walk or AR1
-evolution over time.}
+spatiotemporal population field follows a random-walk or AR1 evolution
+over time.}
+
+\item{q_diffs_system_type}{\code{"random"} or \code{"fixed"}. Controls only the
+flag/system main effect (\code{flag_f}). Flag temporal and spatial deviations
+remain random effects when enabled.}
+
+\item{q_diffs_time}{"on" or "off". Controls whether flag-specific temporal
+deviations are included. Free flag-time cells are reduced in \code{make_data()}
+and passed as compact random-effect vectors.}
+
+\item{q_diffs_spatial}{"on" or "off". Controls whether flag-specific spatial
+deviations are included. If off, the corresponding parameters have length
+0 and the C++ template skips the module.}
 
 \item{obs_sd}{\code{"shared"} or \code{"flag"}. If \code{"flag"}, the positive-catch
 lognormal observation SD is estimated separately for each flag.}
@@ -100,6 +125,31 @@ spatiotemporal random fields are represented using the SPDE (stochastic partial
 differential equation) approach for computational efficiency. See the model
 description vignette for details:
 https://github.com/RujiaBi/intCPUE/blob/main/vignettes/intCPUE-intro.Rmd
+
+The baseline population-density linear predictor is
+\verb{temporal effect (tid) + omega + epsilon + population factor effects + population smooth effects}.
+The temporal effect (\code{tid}) is always present; the spatial random field
+(\code{omega}) and spatiotemporal random field (\code{epsilon}) are controlled by
+\code{pop_spatial} and \code{pop_spatiotemporal}.
+
+By default, \code{tid} is included as a fixed effect. If \code{formula_population}
+contains \code{f(tid)}, the default fixed \code{tid} effect is replaced by
+\verb{intercept + random tid effect}.
+
+Vessel effects are part of the core catchability model and are always included.
+If \code{n_v = 1}, the vessel effect is fixed to 0.
+
+Population-layer smooths and factor effects enter both the observation model
+and projection. Catchability-layer smooths and factor effects enter the
+observation model only.
+
+For \code{data_type = "mixed"}, component 1 is estimated only from delta flags.
+Positive-only flags have encounter probability fixed at 1 and contribute only
+the positive-catch likelihood. Component-1 vessel, flag, smooth, and factor
+structures are compressed in \code{\link[=make_data]{make_data()}} so positive-only flags do not
+introduce component-1 vessel effects, flag effects, flag temporal/spatial
+effects, or unsupported component-1 smooth/factor terms. Component 2 keeps
+the full positive-catch design.
 }
 \author{
 Rujia Bi \email{rbi@iattc.org}

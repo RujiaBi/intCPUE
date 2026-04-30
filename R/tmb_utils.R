@@ -54,11 +54,24 @@
   
   # ---- required fields ----
   req <- c(
-    "n_i","n_t","n_v","n_f",
-    "b_i","e_i","t_i","v_i","f_i",
+    "n_i","n_t","n_v","n_f","n_g","n_region",
+    "has_component1","all_obs_use_component1","use_split_component1_design","use_poisson_link",
+    "use_q_diffs_time",
+    "use_flag_f_random",
+    "obs_uses_component1","v_component1_keep","v_component1_col",
+    "flag_component1_keep",
+    "flag_component1_col",
+    "flag_t_index_1","flag_t_index_2",
+    "b_i","e_i","t_i","v_i","f_i","region_g",
     "A_is","A_gs","spde",
-    "has_smooths_catch","Xs_catch","Zs_catch",
-    "has_smooths_pop","Xs_pop_i","Zs_pop_i","Xs_pop_g","Zs_pop_g"
+    "has_smooths_catch","Xs_catch","Zs_catch","b_smooth_start_catch",
+    "has_fixed_factors_catch","has_random_factors_catch","Xf_catch","Zf_catch","b_factor_start_catch",
+    "has_fixed_factors_catch_1","has_random_factors_catch_1","Xf_catch_1","Zf_catch_1","b_factor_start_catch_1",
+    "has_smooths_catch_1","Xs_catch_1","Zs_catch_1","b_smooth_start_catch_1",
+    "has_smooths_pop","Xs_pop_i","Zs_pop_i","Xs_pop_g","Zs_pop_g","b_smooth_start_pop",
+    "has_fixed_factors_pop","has_random_factors_pop","has_pop_intercept","Xf_pop_i","Zf_pop_i","Xf_pop_g","Zf_pop_g","b_factor_start_pop",
+    "has_smooths_pop_1","Xs_pop_i_1","Zs_pop_i_1","Xs_pop_g_1","Zs_pop_g_1","b_smooth_start_pop_1",
+    "has_fixed_factors_pop_1","has_random_factors_pop_1","Xf_pop_i_1","Zf_pop_i_1","Xf_pop_g_1","Zf_pop_g_1","b_factor_start_pop_1"
   )
   miss <- setdiff(req, names(data_tmb))
   if (length(miss)) {
@@ -120,6 +133,50 @@
   check_index(data_tmb$v_i, data_tmb$n_v, "v_i")
   check_index(data_tmb$f_i, data_tmb$n_f, "f_i")
 
+  if (length(data_tmb$region_g) != data_tmb$n_g) {
+    stop("`region_g` must have length `n_g`.", call. = FALSE)
+  }
+  if (data_tmb$n_region > 0L) {
+    check_index(data_tmb$region_g, data_tmb$n_region, "region_g")
+  } else if (!all(data_tmb$region_g == -1L)) {
+    stop("`region_g` must be all -1 when `n_region = 0`.", call. = FALSE)
+  }
+
+  if (length(data_tmb$v_component1_keep) != data_tmb$n_v) {
+    stop("`v_component1_keep` must have length `n_v`.", call. = FALSE)
+  }
+  if (!all(data_tmb$v_component1_keep %in% c(0L, 1L))) {
+    stop("`v_component1_keep` must contain only 0/1.", call. = FALSE)
+  }
+  if (length(data_tmb$v_component1_col) != data_tmb$n_v) {
+    stop("`v_component1_col` must have length `n_v`.", call. = FALSE)
+  }
+  if (!all(data_tmb$v_component1_col >= 0L)) {
+    stop("`v_component1_col` must contain non-negative indices.", call. = FALSE)
+  }
+  n_v_component1 <- sum(data_tmb$v_component1_keep == 1L)
+  if (n_v_component1 > 0L &&
+      any(data_tmb$v_component1_col[data_tmb$v_component1_keep == 1L] >= n_v_component1)) {
+    stop("`v_component1_col` is out of bounds for component-1 vessels.", call. = FALSE)
+  }
+  if (length(data_tmb$flag_component1_keep) != data_tmb$n_f) {
+    stop("`flag_component1_keep` must have length `n_f`.", call. = FALSE)
+  }
+  if (!all(data_tmb$flag_component1_keep %in% c(0L, 1L))) {
+    stop("`flag_component1_keep` must contain only 0/1.", call. = FALSE)
+  }
+  if (length(data_tmb$flag_component1_col) != data_tmb$n_f) {
+    stop("`flag_component1_col` must have length `n_f`.", call. = FALSE)
+  }
+  if (!all(data_tmb$flag_component1_col >= 0L)) {
+    stop("`flag_component1_col` must contain non-negative indices.", call. = FALSE)
+  }
+  n_f_component1 <- sum(data_tmb$flag_component1_keep == 1L)
+  if (n_f_component1 > 0L &&
+      any(data_tmb$flag_component1_col[data_tmb$flag_component1_keep == 1L] >= n_f_component1)) {
+    stop("`flag_component1_col` is out of bounds for component-1 flags.", call. = FALSE)
+  }
+
   if (!identical(nrow(data_tmb$Xs_catch), data_tmb$n_i))
     stop("`Xs_catch` must have `n_i` rows.", call. = FALSE)
 
@@ -146,6 +203,102 @@
 
   if (length(data_tmb$Zs_pop_i) != length(data_tmb$Zs_pop_g)) {
     stop("`Zs_pop_i` and `Zs_pop_g` must have the same length.", call. = FALSE)
+  }
+
+  if (!identical(nrow(data_tmb$Xs_catch_1), data_tmb$n_i))
+    stop("`Xs_catch_1` must have `n_i` rows.", call. = FALSE)
+
+  if (!identical(nrow(data_tmb$Xs_pop_i_1), data_tmb$n_i))
+    stop("`Xs_pop_i_1` must have `n_i` rows.", call. = FALSE)
+
+  if (!identical(nrow(data_tmb$Xs_pop_g_1), data_tmb$n_g * data_tmb$n_t))
+    stop("`Xs_pop_g_1` must have `n_g * n_t` rows.", call. = FALSE)
+
+  if (length(data_tmb$Zs_catch_1) > 0L &&
+      any(vapply(data_tmb$Zs_catch_1, nrow, integer(1)) != data_tmb$n_i)) {
+    stop("Each element of `Zs_catch_1` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zs_pop_i_1) > 0L &&
+      any(vapply(data_tmb$Zs_pop_i_1, nrow, integer(1)) != data_tmb$n_i)) {
+    stop("Each element of `Zs_pop_i_1` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zs_pop_g_1) > 0L &&
+      any(vapply(data_tmb$Zs_pop_g_1, nrow, integer(1)) != data_tmb$n_g * data_tmb$n_t)) {
+    stop("Each element of `Zs_pop_g_1` must have `n_g * n_t` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zs_pop_i_1) != length(data_tmb$Zs_pop_g_1)) {
+    stop("`Zs_pop_i_1` and `Zs_pop_g_1` must have the same length.", call. = FALSE)
+  }
+
+  if (!is.null(data_tmb$Xf_catch) &&
+      !identical(nrow(data_tmb$Xf_catch), data_tmb$n_i)) {
+    stop("`Xf_catch` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_catch) > 0L &&
+      any(vapply(data_tmb$Zf_catch, nrow, integer(1)) != data_tmb$n_i)) {
+    stop("Each element of `Zf_catch` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (!is.null(data_tmb$Xf_pop_i) &&
+      !identical(nrow(data_tmb$Xf_pop_i), data_tmb$n_i)) {
+    stop("`Xf_pop_i` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (!is.null(data_tmb$Xf_pop_g) &&
+      !identical(nrow(data_tmb$Xf_pop_g), data_tmb$n_g * data_tmb$n_t)) {
+    stop("`Xf_pop_g` must have `n_g * n_t` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_pop_i) > 0L &&
+      any(vapply(data_tmb$Zf_pop_i, nrow, integer(1)) != data_tmb$n_i)) {
+    stop("Each element of `Zf_pop_i` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_pop_g) > 0L &&
+      any(vapply(data_tmb$Zf_pop_g, nrow, integer(1)) != data_tmb$n_g * data_tmb$n_t)) {
+    stop("Each element of `Zf_pop_g` must have `n_g * n_t` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_pop_i) != length(data_tmb$Zf_pop_g)) {
+    stop("`Zf_pop_i` and `Zf_pop_g` must have the same length.", call. = FALSE)
+  }
+
+  if (!is.null(data_tmb$Xf_catch_1) &&
+      !identical(nrow(data_tmb$Xf_catch_1), data_tmb$n_i)) {
+    stop("`Xf_catch_1` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_catch_1) > 0L &&
+      any(vapply(data_tmb$Zf_catch_1, nrow, integer(1)) != data_tmb$n_i)) {
+    stop("Each element of `Zf_catch_1` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (!is.null(data_tmb$Xf_pop_i_1) &&
+      !identical(nrow(data_tmb$Xf_pop_i_1), data_tmb$n_i)) {
+    stop("`Xf_pop_i_1` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (!is.null(data_tmb$Xf_pop_g_1) &&
+      !identical(nrow(data_tmb$Xf_pop_g_1), data_tmb$n_g * data_tmb$n_t)) {
+    stop("`Xf_pop_g_1` must have `n_g * n_t` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_pop_i_1) > 0L &&
+      any(vapply(data_tmb$Zf_pop_i_1, nrow, integer(1)) != data_tmb$n_i)) {
+    stop("Each element of `Zf_pop_i_1` must have `n_i` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_pop_g_1) > 0L &&
+      any(vapply(data_tmb$Zf_pop_g_1, nrow, integer(1)) != data_tmb$n_g * data_tmb$n_t)) {
+    stop("Each element of `Zf_pop_g_1` must have `n_g * n_t` rows.", call. = FALSE)
+  }
+
+  if (length(data_tmb$Zf_pop_i_1) != length(data_tmb$Zf_pop_g_1)) {
+    stop("`Zf_pop_i_1` and `Zf_pop_g_1` must have the same length.", call. = FALSE)
   }
   
   invisible(TRUE)

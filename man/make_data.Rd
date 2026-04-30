@@ -5,29 +5,26 @@
 \title{Prepare data objects and mesh for intCPUE workflows}
 \usage{
 make_data(
-  formula = NULL,
   data_utm,
   mesh,
   formula_catchability = NULL,
   formula_population = NULL,
   projection_data = NULL,
+  flag_uses_component1 = NULL,
   area_scale = "auto"
 )
 }
 \arguments{
-\item{formula}{Legacy model formula. If supplied, it is treated as
-\code{formula_catchability}.}
-
 \item{data_utm}{A data.frame containing required columns (with utm_x/y_scale)}
 
 \item{mesh}{intCPUEmesh built from make_mesh(), or a custom mesh}
 
-\item{formula_catchability}{Optional one-sided or two-sided formula defining
-smooth terms that affect catchability only.}
+\item{formula_catchability}{Optional one-sided formula defining
+smooth and factor terms that affect catchability only.}
 
-\item{formula_population}{Optional one-sided or two-sided formula defining
-smooth terms that affect both the observation model and the projected
-population density surface.}
+\item{formula_population}{Optional one-sided formula defining
+smooth and factor terms that affect both the observation model and the
+projected population density surface.}
 
 \item{projection_data}{Optional data.frame giving projection-grid covariates
 for \code{formula_population}. It must contain \code{utm_x_scale} and \code{utm_y_scale}
@@ -43,6 +40,11 @@ combination, with \code{tid} coded the same way as \code{data_utm$tid};
 (3) if both static and time-varying covariates are used together, provide
 one row per grid cell-time combination and repeat the static covariate
 values across \code{tid}.}
+
+\item{flag_uses_component1}{Optional logical vector with one value per
+0-based flag level, indicating which flags contribute to the encounter
+component. Used internally for mixed delta/positive data. If \code{NULL}, all
+flags are treated as component-1 flags.}
 
 \item{area_scale}{Numeric or "auto". Scaling factor for area_km2.}
 }

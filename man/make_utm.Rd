@@ -7,6 +7,7 @@
 make_utm(
   data_input,
   utm_zone = NULL,
+  hemisphere = c("auto", "north", "south"),
   coord_scale = "auto",
   lon_convention = c("auto", "-180_180", "0_360"),
   quiet = TRUE
@@ -16,6 +17,10 @@ make_utm(
 \item{data_input}{data.frame with columns lon, lat (and others you need)}
 
 \item{utm_zone}{integer in 1--60; if NULL, auto-selected}
+
+\item{hemisphere}{\code{"auto"}, \code{"north"}, or \code{"south"}. \code{"auto"} chooses the
+UTM hemisphere from the majority of observation latitudes; \code{"north"} uses
+EPSG:326xx and \code{"south"} uses EPSG:327xx.}
 
 \item{coord_scale}{positive numeric or "auto"}
 

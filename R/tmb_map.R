@@ -47,18 +47,22 @@
   )
 }
 
-.make_map_intCPUE <- function(parameters, n_f,
+.make_map_intCPUE <- function(parameters, n_f, n_v,
                               obs_sd = c("shared","flag"),
                               pop_spatiotemporal_type = c("rw", "ar1"),
+                              use_random_tid_effect = FALSE,
+                              q_diffs_system_type = c("random", "fixed"),
                               q_diffs_time = c("on","off"),
                               has_tf = NULL,
                               estimable_flag = NULL) {
   q_diffs_time <- match.arg(q_diffs_time)
+  q_diffs_system_type <- match.arg(q_diffs_system_type)
   obs_sd <- match.arg(obs_sd)
   pop_spatiotemporal_type <- match.arg(pop_spatiotemporal_type)
   
   map <- list()
-  has_param <- function(name) !is.null(parameters[[name]])
+  has_param <- function(name) !is.null(parameters[[name]]) && length(parameters[[name]]) > 0L
+  fix_all <- function(name) factor(rep(NA, length(parameters[[name]])))
 
   # ---------------------------------------------------------
   # Observation SD
@@ -73,42 +77,51 @@
     }
   }
 
-  # Fixed core architecture:
-  # spatial + spatiotemporal + vessel + q_diffs_system are always on.
-  # q_diffs_time / q_diffs_spatial are handled by separate TMB templates, not map.
+  # Structural modules such as omega, epsilon, and flag_s are controlled by
+  # wrapper templates and omitted from `parameters` when disabled. This map only
+  # fixes parameters that remain in the template but are not identifiable for a
+  # given data/model configuration.
   # The AR1 correlation parameters are only active for the AR1 branch; under RW
   # they must be fixed at the neutral working-scale value to avoid singular Hessians.
   if (pop_spatiotemporal_type == "rw") {
-    if (has_param("transf_rho_1")) map$transf_rho_1 <- factor(NA)
-    if (has_param("transf_rho_2")) map$transf_rho_2 <- factor(NA)
+    if (has_param("transf_rho_1")) map$transf_rho_1 <- fix_all("transf_rho_1")
+    if (has_param("transf_rho_2")) map$transf_rho_2 <- fix_all("transf_rho_2")
   }
 
-  if (has_param("flag_t_ln_std_dev_1")) {
-    if (q_diffs_time == "off" || n_f <= 1L) {
-      map$flag_t_ln_std_dev_1 <- factor(NA)
-      if (has_param("flag_t_ln_std_dev_2")) map$flag_t_ln_std_dev_2 <- factor(NA)
-    } else {
-      if (is.null(has_tf)) {
-        stop("q_diffs_time='on' requires `has_tf` to construct temporal flag effects.", call. = FALSE)
-      }
-      if (is.null(estimable_flag)) {
-        tf_constraint <- .build_flag_t_constraint(has_tf)
-        estimable_flag <- tf_constraint$estimable_flag
-      }
-      if (!any(estimable_flag)) {
-        map$flag_t_ln_std_dev_1 <- factor(NA)
-        if (has_param("flag_t_ln_std_dev_2")) map$flag_t_ln_std_dev_2 <- factor(NA)
-      }
+  if (n_v <= 1L) {
+    if (has_param("ves_v_1")) map$ves_v_1 <- factor(rep(NA, length(parameters$ves_v_1)))
+    if (has_param("ves_v_2")) map$ves_v_2 <- factor(rep(NA, length(parameters$ves_v_2)))
+    if (has_param("ves_ln_std_dev_1")) map$ves_ln_std_dev_1 <- fix_all("ves_ln_std_dev_1")
+    if (has_param("ves_ln_std_dev_2")) map$ves_ln_std_dev_2 <- factor(NA)
+  }
+
+  if (isTRUE(use_random_tid_effect)) {
+    if (has_param("yq_t_1")) map$yq_t_1 <- factor(rep(NA, length(parameters$yq_t_1)))
+    if (has_param("yq_t_2")) map$yq_t_2 <- factor(rep(NA, length(parameters$yq_t_2)))
+  } else {
+    if (has_param("pop_intercept")) map$pop_intercept <- factor(rep(NA, length(parameters$pop_intercept)))
+  }
+
+  if (has_param("flag_t_ln_std_dev_1") || has_param("flag_t_ln_std_dev_2")) {
+    if (is.null(has_tf)) {
+      stop("q_diffs_time='on' requires `has_tf` to construct temporal flag effects.", call. = FALSE)
+    }
+    if (is.null(estimable_flag)) {
+      tf_constraint <- .build_flag_t_constraint(has_tf)
+      estimable_flag <- tf_constraint$estimable_flag
+    }
+    if (!any(estimable_flag)) {
+      if (has_param("flag_t_ln_std_dev_1")) map$flag_t_ln_std_dev_1 <- fix_all("flag_t_ln_std_dev_1")
+      if (has_param("flag_t_ln_std_dev_2")) map$flag_t_ln_std_dev_2 <- fix_all("flag_t_ln_std_dev_2")
     }
   }
 
-  # If there is only one flag in the data, the flag-system terms are not identifiable.
-  if (n_f <= 1L) {
-    if (has_param("flag_f_1")) map$flag_f_1 <- factor(rep(NA, length(parameters$flag_f_1)))
-    if (has_param("flag_f_2")) map$flag_f_2 <- factor(rep(NA, length(parameters$flag_f_2)))
-    if (has_param("flag_ln_std_dev_1")) map$flag_ln_std_dev_1 <- factor(NA)
+  # If there is only one flag in the data, or the flag main effect is fixed,
+  # the flag-system variance terms are not identifiable.
+  if (n_f <= 1L || q_diffs_system_type == "fixed") {
+    if (has_param("flag_ln_std_dev_1")) map$flag_ln_std_dev_1 <- fix_all("flag_ln_std_dev_1")
     if (has_param("flag_ln_std_dev_2")) map$flag_ln_std_dev_2 <- factor(NA)
   }
-  
+
   map
 }

@@ -8,6 +8,9 @@
 #' @param inner.control List passed to TMB::MakeADFun(inner.control=...).
 #'   Default uses sparse + lowrank for memory efficiency.
 #' @param silent Logical; passed to TMB::MakeADFun() for the bias-correction step.
+#' @param regions `"total"` returns only the total-region index, preserving the
+#'   historical output shape. `"all"` returns region-specific indices plus the
+#'   total index. Bias correction is done jointly either way.
 #'
 #' @return A data.frame with columns:
 #'   \itemize{
@@ -22,7 +25,8 @@ get_index <- function(
     object,
     level = 0.95,
     inner.control = list(sparse = TRUE, lowrank = TRUE, trace = FALSE),
-    silent = TRUE
+    silent = TRUE,
+    regions = c("total", "all")
 ) {
   if (!inherits(object, "intCPUE")) {
     stop("`object` must be an `intCPUE` fit from intCPUE().", call. = FALSE)
@@ -40,32 +44,48 @@ get_index <- function(
   if (is.null(data$n_t)) {
     stop("`object$data_tmb$n_t` is missing. Cannot determine index length.", call. = FALSE)
   }
+  regions <- match.arg(regions)
   n_t <- as.integer(data$n_t)
+  n_region <- if (!is.null(data$n_region)) as.integer(data$n_region) else 0L
+  n_index <- n_region + 1L
+  region_labels <- object$prep$region_labels
+  if (is.null(region_labels) || length(region_labels) != n_region) {
+    region_labels <- as.character(seq_len(n_region) - 1L)
+  }
+  index_labels <- c(region_labels, "total")
   
-  # --- 1) log-scale SE from sdreport (ADREPORT(link_total)) ---
+  # --- 1) log-scale SE from sdreport (ADREPORT(link_index)) ---
   ssr <- summary(rep, "report")
-  if (!("link_total" %in% rownames(ssr))) {
-    stop("`link_total` not found in sdreport(summary(rep, 'report')). Did you ADREPORT(link_total) in C++?",
+  if ("link_index" %in% rownames(ssr)) {
+    log_se <- ssr[rownames(ssr) == "link_index", "Std. Error"]
+    if (length(log_se) != n_index * n_t) {
+      stop("Unexpected length of log SE for link_index: got ", length(log_se),
+           ", expected ", n_index * n_t, ".", call. = FALSE)
+    }
+    log_se_mat <- matrix(log_se, nrow = n_index, ncol = n_t)
+  } else if ("link_total" %in% rownames(ssr)) {
+    log_se_total <- ssr[rownames(ssr) == "link_total", "Std. Error"]
+    if (length(log_se_total) != n_t) {
+      stop("Unexpected length of log SE for link_total: got ", length(log_se_total),
+           ", expected n_t=", n_t, ".", call. = FALSE)
+    }
+    log_se_mat <- matrix(NA_real_, nrow = n_index, ncol = n_t)
+    log_se_mat[n_index, ] <- log_se_total
+  } else {
+    stop("Neither `link_index` nor `link_total` was found in sdreport(summary(rep, 'report')).",
          call. = FALSE)
   }
-  log_se <- ssr[rownames(ssr) == "link_total", "Std. Error"]
-  if (length(log_se) != n_t) {
-    stop("Unexpected length of log SE for link_total: got ", length(log_se),
-         ", expected n_t=", n_t, ".", call. = FALSE)
-  }
   
-  # --- 2) bias correction step using eps_index gradient ---
+  # --- 2) joint bias correction step using eps_index gradient ---
   parhat <- obj$env$parList(opt$par)
-  parhat[["eps_index"]] <- rep(0, n_t)
+  parhat[["eps_index"]] <- rep(0, n_index * n_t)
   
   if (!is.null(ncores)) {
     ncores <- as.integer(ncores)
     if (is.na(ncores) || ncores < 1L) {
       stop("`ncores` must be a positive integer.", call. = FALSE)
     }
-    if (ncores > 1L) {
-      TMB::openmp(ncores, autopar = TRUE, DLL = DLL)
-    }
+    TMB::openmp(ncores, autopar = ncores > 1L, DLL = DLL)
   }
   
   new_obj <- TMB::MakeADFun(
@@ -90,14 +110,15 @@ get_index <- function(
   }
   
   index_bc <- as.numeric(grad[nm == "eps_index"])
-  if (length(index_bc) != n_t) {
+  if (length(index_bc) != n_index * n_t) {
     stop(
       "Bias-corrected index length mismatch: got ", length(index_bc),
-      ", expected n_t=", n_t, ".",
+      ", expected ", n_index * n_t, ".",
       call. = FALSE
     )
   }
-  if (any(!is.finite(index_bc)) || any(index_bc <= 0)) {
+  index_bc_mat <- matrix(index_bc, nrow = n_index, ncol = n_t)
+  if (any(!is.finite(index_bc_mat)) || any(index_bc_mat <= 0)) {
     stop(
       "Bias-corrected index contains non-finite or non-positive values; cannot take logs. ",
       "Check model fit / bias-correction step.",
@@ -106,17 +127,24 @@ get_index <- function(
   }
   
   # --- 3) assemble output on original scale + log scale ---
-  log_index_bc <- log(index_bc)
+  keep <- if (identical(regions, "total")) n_index else seq_len(n_index)
+  index_bc_vec <- as.vector(index_bc_mat[keep, , drop = FALSE])
+  log_index_bc <- log(index_bc_vec)
+  log_se_vec <- as.vector(log_se_mat[keep, , drop = FALSE])
   z <- stats::qnorm(1 - (1 - level)/2)
   
   out <- data.frame(
-    time = seq_len(n_t),
-    index = index_bc,
+    region = rep(index_labels[keep], times = n_t),
+    time = rep(seq_len(n_t), each = length(keep)),
+    index = index_bc_vec,
     log_index = log_index_bc,
-    cv = log_se,
-    lwr = exp(log_index_bc - z * log_se),
-    upr = exp(log_index_bc + z * log_se)
+    cv = log_se_vec,
+    lwr = exp(log_index_bc - z * log_se_vec),
+    upr = exp(log_index_bc + z * log_se_vec)
   )
+  if (identical(regions, "total")) {
+    out$region <- NULL
+  }
   
   out
 }

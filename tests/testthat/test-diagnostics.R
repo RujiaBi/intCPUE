@@ -245,7 +245,7 @@ test_that("diagnostic helpers return expected objects for a fitted model", {
 
   fit <- suppressWarnings(
     intCPUE(
-      formula = cpue ~ 1,
+      formula_catchability = ~ 1,
       data_utm = data_utm,
       mesh = mesh,
       q_diffs_time = "off",

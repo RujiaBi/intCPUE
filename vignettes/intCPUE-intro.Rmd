@@ -23,209 +23,295 @@ knitr::opts_chunk$set(
 
 # Overview
 
-**intCPUE** is a TMB-based framework for integrated CPUE standardization across multiple fisheries or surveys,
-with optional preferential sampling correction (under development).
+**intCPUE** is a TMB-based framework for integrated CPUE standardization across
+multiple fisheries or surveys, with optional preferential sampling correction
+(under development).
 
 The model supports:
 
-- spatiotemporal random fields via an SPDE mesh (using `fmesher`)
+- spatiotemporal random fields via an SPDE mesh;
+- multiple fisheries, fleets, or surveys through catchability components;
+- one-sided formulas for catchability and population covariates;
+- `s()` smooth terms and fixed or random factor effects;
+- delta, positive-only, and mixed delta/positive observation data.
 
-- multiple fleets / surveys through catchability components
+The package supports three observation-data structures:
 
-- mgcv-style `s()` smooth terms parsed into mixed-effects from inside TMB
+- `data_type = "delta"`: every flag/type has zero and positive observations;
+- `data_type = "positive"`: all observations are positive-only;
+- `data_type = "mixed"`: some flags/types are delta and some are positive-only;
+- `data_type = "auto"`: detect the structure from `encounter` by `flagid`.
 
-This is currently a Poisson-link delta model. The baseline population surface is always driven by temporal effects together with spatial and spatiotemporal random fields. Vessel effects and systematic fishery differences are part of the core model. The user-facing switches currently control the spatiotemporal population evolution type (`pop_spatiotemporal_type`), the time-varying and spatial fishery-specific catchability deviations (`q_diffs_time`, `q_diffs_spatial`), and the observation-SD structure (`obs_sd`). Smooth terms can be assigned either to catchability only or to the population layer. Population-layer smooths are included both in the observation model and in projection, so they affect the standardized index.
-
-Here provides a minimal workflow: install → data preparation → coordinate projection → mesh → model fitting → index extraction.
-
-# Installation (development version)
-
-```r
-# install.packages("remotes")
-remotes::install_github("RujiaBi/intCPUE")
-```
-
-```r
-library(intCPUE)
-```
+For pure delta data, `delta_link = c("Poisson", "traditional")` chooses between
+the Poisson-link delta model and a traditional delta-lognormal model. For
+positive-only data, `delta_link` is ignored because there is no encounter
+submodel. For mixed data, `delta_link = "traditional"` is required.
 
 # Data structure
 
-An intCPUE model requires a data frame containing the following columns:
+An `intCPUE` model requires a data frame with these columns:
 
-* `cpue` — positive catch rate  
+- `cpue`: positive catch rate;
+- `encounter`: encounter indicator, where 0 is zero catch and 1 is positive catch;
+- `lon`, `lat`: geographic coordinates;
+- `vesid`: 0-based vessel ID;
+- `tid`: 0-based time index;
+- `flagid`: 0-based fishery/survey ID, where 0 is the reference fishery.
 
-* `encounter` — encounter indicator (0 = zero catch, 1 = positive catch)  
-
-* `lon`, `lat` — geographic coordinates  
-
-* `vesid` — vessel ID (0-based)  
-
-* `tid` — time index (0-based)  
-
-* `flagid` — fishery / survey ID (0-based; 0 = reference fishery)
-
-These columns are required. Additional columns may be included as needed.
+Additional columns can be included for smooth and factor covariates.
 
 ```r
-# Use `pcod` from `sdmTMB` as an example
+# Example structure based on a two-fishery YFT CPUE data set.
+# Replace column names on the right-hand side with the names in your data.
+combined_data[combined_data$flag == "JPN", "flagid"] <- 0
+combined_data[combined_data$flag == "PS", "flagid"] <- 1
+combined_data$vesid <- as.numeric(as.factor(as.character(combined_data$vesno))) - 1
+combined_data$tid <- combined_data$yq - min(combined_data$yq)
+
 data_input <- data.frame(
-  "cpue" = pcod$density,
-  "encounter" = pcod$present,
-  "lon" = pcod$lon,
-  "lat" = pcod$lat,
-  "vesid" = 0,
-  "tid" = as.numeric(as.factor(pcod$year))-1,
-  "flagid" = 0,
-  "depth" = pcod$depth
+  cpue = combined_data$cpue,
+  encounter = combined_data$encounter,
+  lon = combined_data$lonc1,
+  lat = combined_data$latc1,
+  vesid = combined_data$vesid,
+  tid = combined_data$tid,
+  flagid = combined_data$flagid,
+  hbf = combined_data$hbf
 )
 ```
 
-## Important
+Important data rules:
 
-- `vesid`, `tid` and `flagid` must be 0-based contiguous integers
+- `vesid`, `tid`, and `flagid` must be 0-based contiguous integers.
+- `flagid = 0` is the reference fishery or survey.
+- For `data_type = "mixed"`, the reference flag (`flagid = 0`) must be a delta flag.
 
-- `flagid` must use 0 as the reference fishery / survey
+# Coordinate projection
 
-# Coordinate projection (lon/lat → UTM)
-
-Longitude may be in either -180..180 or 0..360.
-
-`make_utm()` automatically:
-
-- detects longitude convention
-
-- selects an appropriate UTM zone
-
-- scales coordinates for numerical stability
+Longitude can be in either `[-180, 180]` or `[0, 360]`. `make_utm()` normalizes
+longitudes, chooses a UTM zone, chooses a hemisphere, and scales coordinates for
+numerical stability.
 
 ```r
-utm <- make_utm(data_input, utm_zone = NULL, coord_scale = "auto")
+utm <- make_utm(
+  data_input,
+  utm_zone = NULL,
+  hemisphere = "auto",
+  coord_scale = "auto"
+)
+
 data_utm <- utm$data_utm
 ```
 
-# Build spatial mesh
+The `hemisphere` argument can be:
 
-The mesh must be constructed using the scaled projected coordinates:
-`utm_x_scale` and `utm_y_scale`
+- `"auto"`: choose the hemisphere based on the majority latitude;
+- `"north"`: force EPSG `32600 + zone`;
+- `"south"`: force EPSG `32700 + zone`.
 
-## K-means mesh
+# Build a spatial mesh
+
+The mesh should be built from the scaled projected coordinates:
+`utm_x_scale` and `utm_y_scale`.
 
 ```r
-mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "kmeans", n_knots = 50)
-plot(mesh)
-```
-
-## Cutoff mesh
-```r
-mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
-plot(mesh)
-```
-
-## Tailor mesh
-```r
-mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "tailored",
-    convex = -0.1,         # for a finer boundary
-    max.edge = c(0.5, 2),   # max triangle edge length; inner and outer meshes
-    offset = c(0.1, 0.5),  # inner and outer border widths
-    cutoff = 0.05)
-plot(mesh)
-```
-
-## Custom mesh
-```r
-bnd <- INLA::inla.nonconvex.hull(cbind(data_utm$utm_x_scale, data_utm$utm_y_scale), convex = -0.1)
-mesh_inla <- INLA::inla.mesh.2d(
-  boundary = bnd,
-  max.edge = c(0.5, 2)
+mesh <- make_mesh(
+  data_utm,
+  xy_cols = c("utm_x_scale", "utm_y_scale"),
+  type = "cutoff",
+  cutoff = 5
 )
-mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), mesh = mesh_inla)
-plot(mesh)
 ```
 
-# Fit the model
+Other mesh options include `type = "kmeans"`, `type = "tailored"`, or supplying
+a custom `fmesher`/INLA mesh.
+
+# Model formulas
+
+`intCPUE()` uses separate one-sided formulas for catchability and population
+covariates. The response is not written in either formula; `cpue` and
+`encounter` are read directly from `data_utm`.
 
 ```r
-formula_catchability <- ~ s(depth)
+formula_catchability <- ~ s(hbf)
 formula_population <- ~ s(temp) + s(chl)
 ```
-Interpretation of the baseline model:
 
-Both encounter and positive components include:
+Formula rules:
 
-- fixed temporal effects (`tid`, as intercepts)
+- Use `s(x)` for smooth terms.
+- Use `x` for a fixed factor effect.
+- Use `f(x)` for a random factor effect.
+- Do not write `cpue ~ ...`.
+- Vessel effects do not need to be written as `f(vesid)` because they are part
+  of the core catchability model.
+- By default, `tid` is a fixed population effect.
+- `formula_population = ~ f(tid) + ...` replaces the fixed `tid` effect with
+  `intercept + random tid effect`.
 
-- spatial random field (`omega`)
-
-- spatiotemporal random field (`epsilon`)
-
-`formula_catchability` adds smooth covariates that affect catchability only.
-
-`formula_population` adds smooth covariates that affect the latent population surface and therefore also enter projection. When population covariates are not uniquely defined within each extrapolation cell, provide them explicitly through `projection_data`. If they also vary over time, include a `tid` column in `projection_data` so the projection covariates are matched by grid cell and time.
-
-The legacy `formula = ...` interface is still supported and is treated as `formula_catchability = ...`.
-
-## `projection_data` format
-
-If `formula_population` is used, population covariates must be available on the extrapolation grid:
-
-- Static population covariates: `projection_data` should contain one row per extrapolation grid cell, with columns `utm_x_scale`, `utm_y_scale`, and the covariates used in `formula_population`.
-- Time-varying population covariates: `projection_data` should contain one row per grid cell-time combination, with columns `utm_x_scale`, `utm_y_scale`, `tid`, and the covariates used in `formula_population`.
-- If `formula_population` mixes static and time-varying covariates, use the grid cell-time format and repeat the static covariate values across `tid`.
-
-`tid` must use the same 0-based coding as `data_utm$tid`.
+If a factor effect should differ by flag, create the interaction explicitly:
 
 ```r
-ncores <- 4
-mesh <- make_mesh(data_utm, xy_cols = c("utm_x_scale", "utm_y_scale"), type = "cutoff", cutoff = 0.1)
+data_input$season_flag <- interaction(data_input$season, data_input$flagid, drop = TRUE)
+formula_catchability <- ~ f(season_flag)
+```
+
+Factor term rules:
+
+- `formula_catchability = ~ season` adds `season` as a fixed factor effect on
+  catchability.
+- `formula_catchability = ~ f(season)` adds `season` as a random factor effect
+  on catchability, with an estimated standard deviation.
+- The same syntax can be used in `formula_population`, where factor effects
+  enter both the observation model and projection.
+- Fixed and random factor terms must be simple variable names. Inline
+  interactions such as `season:flag_factor` or `f(season:flag_factor)` are not
+  supported by the parser.
+- If a factor effect should differ by flag, create the interaction as a new
+  factor column first, then use `~ season_flag` for a fixed interaction or
+  `~ f(season_flag)` for a random interaction.
+- Do not include `vesid` in either formula because vessel effects are included
+  by default in the catchability model.
+- Do not include `tid` as a fixed population factor because fixed `tid` is
+  already included by default. Use `formula_population = ~ f(tid)` only when
+  you want to replace the default fixed `tid` effect with
+  `intercept + random tid effect`.
+
+## Smooths with missing covariates
+
+`intCPUE` evaluates each smooth term on rows where the variables required by
+that smooth are non-missing. Rows with `NA` for a smooth covariate are expanded
+back into the design matrix with zeros, so the contribution of that smooth is
+0 for those rows.
+
+This is useful when a covariate is available for only some flags:
+
+```r
+data_input$hbf_for_model <- data_input$hbf
+data_input$hbf_for_model[data_input$flagid == 1] <- NA
+
+formula_catchability <- ~ s(hbf_for_model)
+```
+
+For `flagid == 1`, the model uses `s(hbf_for_model) = 0`.
+
+This does not create separate smooth curves by flag. It creates one shared
+smooth curve that is active only for rows with non-missing covariates. If the
+smooth relationship should differ by flag, use a factor `by` smooth:
+
+```r
+data_input$flag_factor <- factor(data_input$flagid)
+formula_catchability <- ~ s(hbf, by = flag_factor)
+```
+
+Avoid `by = flagid` when `flagid` is numeric, because that creates a numeric
+varying-coefficient smooth rather than separate flag-specific smooths.
+
+# Fitting a model
+
+Full interface:
+
+```r
 fit <- intCPUE(
-  formula_catchability = formula_catchability,
-  data_utm = data_utm,
-  mesh = mesh,
-  pop_spatiotemporal_type = "rw",
-  q_diffs_time = "off",  
-  q_diffs_spatial = "off",
-  obs_sd = "shared",
-  ncores = ncores
+  data_utm,
+  mesh,
+  formula_catchability = NULL,
+  formula_population = NULL,
+  projection_data = NULL,
+  data_type = c("auto", "delta", "positive", "mixed"),
+  delta_link = c("Poisson", "traditional"),
+  pop_spatial = c("on", "off"),
+  pop_spatiotemporal = c("on", "off"),
+  pop_spatiotemporal_type = c("rw", "ar1"),
+  q_diffs_system_type = c("random", "fixed"),
+  q_diffs_time = c("on", "off"),
+  q_diffs_spatial = c("on", "off"),
+  obs_sd = c("shared", "flag"),
+  control = list(eval.max = 1e5, iter.max = 1e5),
+  ncores = NULL,
+  ...,
+  silent = FALSE,
+  restart_max = 1L,
+  newton_max = 2L,
+  coord_max = 5L
 )
 ```
 
-## Core model components
-
-* `pop_spatiotemporal_type` — temporal dependence for the population spatiotemporal field (`"rw"` or `"ar1"`)
-
-The current package version fits a fixed core model with:
-
-* population spatial and spatiotemporal random fields turned on
-
-* vessel effects turned on
-
-* systematic fishery catchability differences turned on
-
-## User-facing switches
-
-* `q_diffs_time` — time-varying catchability difference 
-
-* `q_diffs_spatial` — spatial catchability difference
-
-For the reference fishery (`flagid = 0`), the `q_diffs_*` terms are constrained to 0.
-
-## Observation error
-
-* `obs_sd = "shared"` uses one lognormal observation SD across all flags
-
-* `obs_sd = "flag"` estimates one lognormal observation SD for each flag
-
-# Getting indices with bias correction
+Example:
 
 ```r
-indices <- get_index(fit)
-plot_index(indices)
+fit <- intCPUE(
+  data_utm = data_utm,
+  mesh = mesh,
+  formula_catchability = formula_catchability,
+  formula_population = formula_population,
+  data_type = "auto",
+  delta_link = "Poisson",
+  pop_spatial = "on",
+  pop_spatiotemporal = "on",
+  pop_spatiotemporal_type = "rw",
+  q_diffs_system_type = "random",
+  q_diffs_time = "off",
+  q_diffs_spatial = "off",
+  obs_sd = "shared",
+  ncores = 4
+)
 ```
 
-# Diagnostics
+Core switches:
+
+- `pop_spatial`: controls the time-constant spatial field, `omega`;
+- `pop_spatiotemporal`: controls the spatiotemporal field, `epsilon`;
+- `pop_spatiotemporal_type`: `"rw"` or `"ar1"` for `epsilon`;
+- `q_diffs_system_type`: `"random"` or `"fixed"` for the main flag effect,
+  `flag_f`;
+- `q_diffs_time`: controls flag-specific temporal effects, `flag_t`;
+- `q_diffs_spatial`: controls flag-specific spatial effects, `flag_s`;
+- `obs_sd`: `"shared"` or `"flag"` lognormal observation SD.
+
+If `n_v = 1`, the vessel effect is fixed to 0.
+
+# Mixed and positive-only data
+
+For `data_type = "positive"`, the model fits only the positive-lognormal
+component. Projection uses `exp(eta2_proj)`, and `delta_link` is ignored.
+
+For `data_type = "mixed"`:
+
+- `delta_link = "traditional"` is required;
+- the reference flag (`flagid = 0`) must be a delta flag;
+- delta flags contribute both encounter and positive-catch likelihoods;
+- positive-only flags have encounter probability fixed at 1 and contribute only
+  the positive-catch likelihood;
+- component-1 vessel, flag, smooth, and factor structures are compressed in
+  `make_data()`;
+- positive-only flags do not introduce component-1 vessel effects, flag effects,
+  flag temporal/spatial effects, or unsupported component-1 smooth/factor terms.
+
+# Projection data and region-specific indices
+
+If `formula_population` is used, population covariates must be available on the
+extrapolation grid.
+
+- Static population covariates: provide one row per extrapolation grid cell with
+  `utm_x_scale`, `utm_y_scale`, and the population covariates.
+- Time-varying population covariates: provide one row per grid cell-time
+  combination with `utm_x_scale`, `utm_y_scale`, `tid`, and the covariates.
+- If static and time-varying covariates are mixed, use the grid cell-time format
+  and repeat static values across `tid`.
+
+Optional `region` can be supplied in `data_input` before `make_utm()`. Then each
+extrapolation grid cell is assigned to one region. `get_index(...,
+regions = "all")` returns region-specific indices plus the total index with
+joint bias correction.
+
+# Extract indices and diagnostics
 
 ```r
+index <- get_index(fit)
+index_by_region <- get_index(fit, regions = "all")
+plot_index(index)
+
 check_convergence(fit)
 calc_marginal_aic(fit)
 
@@ -234,12 +320,4 @@ plots <- plot_residuals(pred, observed_col = "cpue")
 
 plots$observed_predicted
 plots$spatial_residual
-
-plot_anisotropy(fit)
 ```
-
-# Next steps
-
-- preferential sampling correction
-
-- length frequency part
